@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monkey's Japanese Hub — Alan's Study App</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0d1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Monkey's JP Hub">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/apple-touch-icon-167.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d0d1a;
+  --bg2:     #141428;
+  --bg3:     #1c1c38;
+  --border:  rgba(255,255,255,0.08);
+  --gold:    #c9a96e;
+  --goldlit: #e8c987;
+  --green:   #4caf79;
+  --red:     #e05252;
+  --blue:    #5b8cff;
+  --purple:  #a78bfa;
+  --text:    #e8e8e8;
+  --muted:   rgba(255,255,255,0.58);
+  --muted2:  rgba(255,255,255,0.36);
+  --radius:  14px;
+}
+html, body { height: 100%; }
+body {
+  font-family: 'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow: hidden;
+}
+button { cursor: pointer; border: none; font-family: inherit; }
+input  { font-family: inherit; }
+
+.hub-header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 200;
+}
+.hub-title {
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: .03em;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hub-search-wrap { position: relative; flex: 1; min-width: 220px; max-width: 560px; }
+.hub-search-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: .92rem;
+  padding: 9px 14px;
+  outline: none;
+}
+.hub-search-input:focus { border-color: var(--gold); }
+.hub-view-toggle {
+  display: flex;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.hub-view-btn {
+  background: transparent;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hub-view-btn.active { background: var(--gold); color: #1a1408; }
+.hub-hint { font-size: .72rem; color: var(--muted2); white-space: nowrap; }
+
+/* Blended results dropdown */
+.hub-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.5);
+  max-height: 70vh;
+  overflow-y: auto;
+  display: none;
+  z-index: 500;
+}
+.hub-results.open { display: block; }
+.hub-results-section-title {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  padding: 10px 14px 4px;
+}
+.hub-result-card {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--border);
+}
+.hub-result-card:hover { background: var(--bg3); }
+.hub-result-word { font-size: 1.05rem; font-weight: 600; color: var(--goldlit); white-space: nowrap; }
+.hub-result-reading { font-size: .74rem; color: var(--muted); white-space: nowrap; }
+.hub-result-meaning { font-size: .8rem; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-result-empty, .hub-result-pending {
+  padding: 14px; font-size: .8rem; color: var(--muted2); text-align: center;
+}
+.hub-badge {
+  font-size: .62rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.hub-badge-vocab   { background: rgba(91,140,255,.18);  color: var(--blue);   border: 1px solid rgba(91,140,255,.35); }
+.hub-badge-kanji   { background: rgba(224,82,82,.18);   color: #ff8a8a;       border: 1px solid rgba(224,82,82,.35); }
+.hub-badge-grammar { background: rgba(167,139,250,.18); color: var(--purple); border: 1px solid rgba(167,139,250,.35); }
+.hub-badge-via { background: rgba(255,255,255,.06); color: var(--muted); border: 1px solid var(--border); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.hub-result-card.hub-result-secondary { opacity: .62; }
+.hub-result-card.hub-result-secondary:hover { opacity: 1; }
+.hub-result-card.hub-result-secondary .hub-result-word { color: var(--text); font-weight: 500; }
+
+.hub-frames {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+.hub-frames iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: var(--bg);
+}
+.hub-frames iframe.hidden { visibility: hidden; pointer-events: none; }
+
+@media (max-width: 720px) {
+  .hub-header { padding: 10px 12px; gap: 10px; }
+  .hub-hint { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="hub-header">
+  <div class="hub-title">🐒漢文 <span>Monkey's Japanese Hub</span></div>
+  <div class="hub-search-wrap">
+    <input class="hub-search-input" id="hubSearchInput" type="search"
+           placeholder="Search vocab, kanji and grammar together…" autocomplete="off">
+    <div class="hub-results" id="hubResults"></div>
+  </div>
+  <div class="hub-view-toggle">
+    <button class="hub-view-btn active" id="btnViewVocab" onclick="showView('vocab')">🐒 Vocab</button>
+    <button class="hub-view-btn" id="btnViewKanji" onclick="showView('kanji')">漢 Kanji</button>
+    <button class="hub-view-btn" id="btnViewGrammar" onclick="showView('grammar')">文法 Grammar</button>
+  </div>
+  <div class="hub-hint">One search box, all three apps — click a result to jump straight to its detail card.</div>
+</header>
+
+<div class="hub-frames">
+  <iframe id="frameVocab" src="monkey_vocab_app.html" title="Monkey Vocab"></iframe>
+  <iframe id="frameKanji" src="kanji_app.html" class="hidden" title="Kanji App"></iframe>
+  <iframe id="frameGrammar" src="grammar_app.html" class="hidden" title="Grammar App"></iframe>
+</div>
+
+<script>
+/*═════════════════════════════════════════════
+  APP REGISTRY — add/remove an app by editing this list only;
+  everything below (view switching, search, rendering) is generic.
+═════════════════════════════════════════════*/
+const APPS = {
+  vocab:   { label: 'Vocab',   frameId: 'frameVocab',   btnId: 'btnViewVocab',   badgeClass: 'hub-badge-vocab' },
+  kanji:   { label: 'Kanji',   frameId: 'frameKanji',   btnId: 'btnViewKanji',   badgeClass: 'hub-badge-kanji' },
+  grammar: { label: 'Grammar', frameId: 'frameGrammar', btnId: 'btnViewGrammar', badgeClass: 'hub-badge-grammar' }
+};
+const APP_KEYS = Object.keys(APPS);
+
+/*══════════════════════════════════════════════
+  VIEW SWITCHING — all iframes stay loaded so switching
+  is instant and no app ever re-fetches its sheet.
+═════════════════════════════════════════════*/
+function showView(which) {
+  APP_KEYS.forEach(app => {
+    document.getElementById(APPS[app].frameId).classList.toggle('hidden', which !== app);
+    document.getElementById(APPS[app].btnId).classList.toggle('active', which === app);
+  });
+  closeResults();
+}
+
+/*══════════════════════════════════════════════
+  UNIFIED SEARCH — broadcasts to every iframe via postMessage,
+  blends whatever comes back into one dropdown.
+══════════════════════════════════════════════*/
+const searchInput = document.getElementById('hubSearchInput');
+const resultsBox  = document.getElementById('hubResults');
+let reqSeq = 0;
+let pending = { reqId: -1 };
+APP_KEYS.forEach(app => { pending[app] = null; });
+let debounceTimer = null;
+
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function closeResults() {
+  resultsBox.classList.remove('open');
+}
+
+function frameWindow(app) {
+  const el = document.getElementById(APPS[app].frameId);
+  return el && el.contentWindow;
+}
+
+function runSearch(q) {
+  q = q.trim();
+  if (!q) { closeResults(); return; }
+  reqSeq += 1;
+  pending = { reqId: reqSeq };
+  APP_KEYS.forEach(app => {
+    // Every app key must start as null (== "reply not back yet"), not
+    // undefined, or renderResults' `rows === null` check misses it and
+    // throws reading `.length` off undefined — which silently aborts this
+    // whole function before it reaches `resultsBox.classList.add('open')`
+    // below, so the dropdown never opens on the keystroke that triggered it.
+    pending[app] = null;
+    const w = frameWindow(app);
+    if (w) w.postMessage({ source: 'jhub', type: 'search', query: q, reqId: reqSeq }, '*');
+    else pending[app] = [];
+  });
+  renderResults(q);
+  resultsBox.classList.add('open');
+}
+
+function resultRow(app, r, i) {
+  const badge = `<span class="hub-badge ${APPS[app].badgeClass}">${APPS[app].label}</span>`;
+  // Every app's hubSearch tags a result with `via` when it's a secondary
+  // hit — it matched through some other field (a compound list, an example
+  // sentence, related grammar, …) rather than being the word/kanji/grammar
+  // point itself. Secondary results stay listed but read visually quieter
+  // and carry a small label saying why, so the first-level (exact) results
+  // are the ones that stand out.
+  const isSecondary = !!r.via;
+  const viaTag = isSecondary ? `<span class="hub-badge hub-badge-via">${esc(r.via)}</span>` : '';
+  return `<div class="hub-result-card${isSecondary ? ' hub-result-secondary' : ''}" data-app="${app}" data-ridx="${i}">
+      ${badge}
+      <div class="hub-result-word">${esc(r.word)}</div>
+      <div class="hub-result-reading">${esc(r.reading)}</div>
+      <div class="hub-result-meaning">${esc(r.meaning)}</div>
+      ${viaTag}
+    </div>`;
+}
+
+function renderResults(q) {
+  const sections = [];
+  APP_KEYS.forEach(app => {
+    const rows = pending[app];
+    if (rows == null) {
+      sections.push(`<div class="hub-result-pending">${APPS[app].label} — searching…</div>`);
+    } else if (rows.length) {
+      sections.push(`<div class="hub-results-section-title">${APPS[app].label} — ${rows.length}${rows.length >= 8 ? '+' : ''}</div>`
+        + rows.map((r, i) => resultRow(app, r, i)).join(''));
+    }
+  });
+  if (!sections.length) {
+    resultsBox.innerHTML = '<div class="hub-result-empty">No matches in Vocab, Kanji or Grammar.</div>';
+  } else {
+    resultsBox.innerHTML = sections.join('');
+  }
+}
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  const q = searchInput.value;
+  debounceTimer = setTimeout(() => runSearch(q), 150);
+});
+searchInput.addEventListener('focus', () => {
+  if (searchInput.value.trim()) resultsBox.classList.add('open');
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.hub-search-wrap')) closeResults();
+});
+
+resultsBox.addEventListener('click', (e) => {
+  const card = e.target.closest('.hub-result-card');
+  if (!card) return;
+  const app  = card.getAttribute('data-app');
+  const ridx = Number(card.getAttribute('data-ridx'));
+  const rows = pending[app];
+  const item = rows && rows[ridx];
+  if (!item) return;
+  showView(app);
+  const w = frameWindow(app);
+  // item.idx is passed through exactly as that app's own hubSearch produced it
+  // (a numeric row index for Vocab/Kanji, the grammar point string for Grammar) —
+  // never coerced, since each app's own openModal expects its own type.
+  // The search query rides along too, so a secondary/related result (found
+  // via a compound, collocation, example sentence, etc.) can be highlighted
+  // right where it actually appears on the detail page — that's the whole
+  // point of a secondary match, so without this the word you searched for
+  // can be buried and hard to spot among everything else in the detail view.
+  if (w) w.postMessage({ source: 'jhub', type: 'open', idx: item.idx, query: searchInput.value.trim() }, '*');
+  closeResults();
+});
+
+window.addEventListener('message', (e) => {
+  const d = e.data;
+  if (!d || d.source !== 'jhub-app') return;
+  if (d.reqId !== pending.reqId) return; // stale response — ignore
+  pending[d.app] = d.results || [];
+  renderResults(searchInput.value.trim());
+});
+
+/*══════════════════════════════════════════════
+  PWA: caches the app shell (this file + the 3 sub-apps + icons) so the Hub
+  can be added to the iPhone home screen and still open with no connection
+  at all. The actual vocab/kanji/grammar DATA offline story is separate —
+  see the "OFFLINE CACHE" comments inside each app's own <script>.
+══════════════════════════════════════════════*/
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,2542 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>語彙 App — Monkey no Aware</title>
+<style>
+/*──────────────────────────────────────────────
+  BASE
+──────────────────────────────────────────────*/
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d0d1a;
+  --bg2:     #141428;
+  --bg3:     #1c1c38;
+  --border:  rgba(255,255,255,0.08);
+  --gold:    #c9a96e;
+  --goldlit: #e8c987;
+  --green:   #4caf79;
+  --red:     #e05252;
+  --blue:    #5b8cff;
+  --purple:  #a78bfa;
+  --text:    #e8e8e8;
+  --muted:   rgba(255,255,255,0.58);
+  --muted2:  rgba(255,255,255,0.36);
+  --radius:  14px;
+}
+html, body { height: 100%; }
+body {
+  font-family: 'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+button { cursor: pointer; border: none; font-family: inherit; }
+input  { font-family: inherit; }
+
+/*──────────────────────────────────────────────
+  HEADER + TABS
+──────────────────────────────────────────────*/
+.app-header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  position: sticky; top: 0; z-index: 100;
+}
+.app-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: .04em;
+  padding: 14px 20px 14px 0;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+  margin-right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tab-btn {
+  background: none;
+  color: var(--muted);
+  font-size: .9rem;
+  padding: 0 18px;
+  height: 52px;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.tab-btn:hover  { color: var(--text); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.header-count {
+  margin-left: auto;
+  font-size: .78rem;
+  color: var(--muted);
+  align-self: center;
+  white-space: nowrap;
+  padding-left: 16px;
+}
+
+/*──────────────────────────────────────────────
+  LOADING
+──────────────────────────────────────────────*/
+#loadingPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 18px;
+  padding: 40px;
+}
+.loader {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loadMsg { font-size: .9rem; color: var(--muted); text-align: center; max-width: 420px; line-height: 1.7; }
+
+/*──────────────────────────────────────────────
+  APP ROOT
+──────────────────────────────────────────────*/
+#appRoot {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+}
+.tab-panel { display: none; flex: 1; padding: 24px; max-width: 1100px; margin: 0 auto; width: 100%; }
+.tab-panel.active { display: flex; flex-direction: column; }
+
+/*──────────────────────────────────────────────
+  SEARCH TAB
+──────────────────────────────────────────────*/
+.search-bar-wrap { display: flex; gap: 10px; margin-bottom: 12px; }
+.search-input {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 1rem;
+  padding: 10px 16px;
+  outline: none;
+  transition: border-color .15s;
+}
+.search-input:focus { border-color: var(--gold); }
+.search-input::placeholder { color: var(--muted); }
+.search-hint { font-size: .8rem; color: var(--muted); margin-bottom: 16px; }
+.search-results-wrap {
+  flex: 1;
+  overflow-y: auto;
+}
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.results-section-title {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--gold);
+  font-weight: 700;
+  margin: 20px 0 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.results-section-title:first-child { margin-top: 0; }
+.results-section-count {
+  color: var(--muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: .78rem;
+}
+.results-section-hint {
+  font-size: .78rem;
+  color: var(--muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 10px;
+}
+.badge-related { background: rgba(255,255,255,0.07); color: var(--muted); border: 1px solid var(--border); }
+.result-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.result-card:hover { border-color: var(--gold); background: var(--bg3); }
+.result-word    { font-size: 1.35rem; font-weight: 700; color: var(--goldlit); margin-bottom: 2px; }
+.result-reading { font-size: .8rem; color: var(--muted); margin-bottom: 6px; min-height: 1em; }
+.result-meaning { font-size: .9rem; color: var(--text); margin-bottom: 8px; }
+.result-meta    { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.badge {
+  font-size: .7rem; padding: 2px 7px; border-radius: 20px;
+  font-weight: 600; letter-spacing: .03em;
+}
+.badge-wk   { background: rgba(91,140,255,0.18); color: var(--blue);   border: 1px solid rgba(91,140,255,0.3); }
+.badge-cat  { background: rgba(167,139,250,0.18); color: var(--purple); border: 1px solid rgba(167,139,250,0.35); }
+.badge-ex   { background: rgba(76,175,121,0.18); color: var(--green);  border: 1px solid rgba(76,175,121,0.3); }
+.badge-star { background: rgba(255,200,60,0.18); color: #ffc83c;       border: 1px solid rgba(255,200,60,0.35); cursor: pointer; }
+
+/* Star / Favourites modal button */
+.star-modal-btn {
+  position: absolute; top: 14px; right: 52px;
+  background: rgba(255,255,255,0.07);
+  color: var(--muted);
+  border-radius: 8px;
+  width: 30px; height: 30px;
+  font-size: 1rem; line-height: 30px; text-align: center;
+  border: none; cursor: pointer;
+  transition: all .15s;
+}
+.star-modal-btn:hover  { background: rgba(255,200,60,0.18); color: #ffc83c; }
+.star-modal-btn.starred { color: #ffc83c; background: rgba(255,200,60,0.15); }
+.results-empty { color: var(--muted); padding: 40px; text-align: center; grid-column: 1/-1; }
+
+/*──────────────────────────────────────────────
+  BROWSE TAB
+──────────────────────────────────────────────*/
+.browse-intro { font-size: .88rem; color: var(--muted); margin-bottom: 14px; }
+
+.browse-dropdowns { display: flex; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.ms-dropdown { position: relative; flex: 1 1 260px; max-width: 320px; }
+.ms-dropdown-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: .9rem;
+  padding: 10px 14px;
+  transition: border-color .15s;
+}
+.ms-dropdown-btn:hover, .ms-dropdown.open .ms-dropdown-btn { border-color: var(--gold); }
+.ms-caret { color: var(--muted); font-size: .75rem; transition: transform .15s; margin-left: 8px; }
+.ms-dropdown.open .ms-caret { transform: rotate(180deg); }
+.ms-dropdown-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  min-width: 320px;
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+  z-index: 50;
+  padding: 8px;
+}
+.ms-dropdown.open .ms-dropdown-panel { display: block; }
+.ms-dropdown-actions {
+  display: flex;
+  gap: 8px;
+  padding: 4px 6px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+.ms-dropdown-actions button {
+  background: rgba(255,255,255,0.06);
+  color: var(--muted);
+  font-size: .75rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all .15s;
+}
+.ms-dropdown-actions button:hover { color: var(--goldlit); border-color: var(--gold); }
+.ms-dropdown-list { max-height: 340px; overflow-y: auto; }
+.ms-group-label {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--gold);
+  font-weight: 700;
+  padding: 8px 8px 4px;
+}
+.ms-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: .86rem;
+  transition: background .12s;
+}
+.ms-option:hover { background: var(--bg3); }
+.ms-option input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; cursor: pointer; }
+.ms-option-text { flex: 1; color: var(--text); }
+.ms-option-count { font-size: .72rem; color: var(--muted2); }
+
+.browse-mask-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.browse-mask-label { font-size: .78rem; color: var(--muted); }
+.mask-toggle-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: .82rem;
+  padding: 6px 14px;
+  transition: all .15s;
+}
+.mask-toggle-btn:hover  { border-color: var(--gold); color: var(--goldlit); }
+.mask-toggle-btn.active { background: rgba(224,82,82,0.14); border-color: rgba(224,82,82,0.4); color: #e05252; }
+
+.browse-results { overflow-y: auto; }
+.browse-count { font-size: .78rem; color: var(--muted); margin-top: 10px; }
+.bt-mask { transition: filter .15s; }
+.browse-results.mask-word    .bt-word    .bt-mask,
+.browse-results.mask-reading .bt-reading .bt-mask,
+.browse-results.mask-meaning .bt-meaning .bt-mask {
+  filter: blur(6px);
+  user-select: none;
+  cursor: pointer;
+}
+.browse-results.mask-word    .bt-word    .bt-mask.revealed,
+.browse-results.mask-reading .bt-reading .bt-mask.revealed,
+.browse-results.mask-meaning .bt-meaning .bt-mask.revealed {
+  filter: none;
+}
+.browse-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+}
+.browse-table thead th {
+  text-align: left;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--gold);
+  font-weight: 700;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+}
+.browse-table tbody tr {
+  cursor: pointer;
+  transition: background .12s;
+  border-bottom: 1px solid var(--border);
+}
+.browse-table tbody tr:hover { background: var(--bg2); }
+.browse-table td { padding: 9px 12px; vertical-align: top; }
+.bt-word    { color: var(--goldlit); font-weight: 600; white-space: nowrap; }
+.bt-reading { color: var(--muted); white-space: nowrap; }
+.bt-meaning { color: var(--text); }
+.bt-level   { color: var(--muted); white-space: nowrap; font-size: .8rem; }
+
+/*──────────────────────────────────────────────
+  TEST TAB — SETUP
+──────────────────────────────────────────────*/
+.test-setup { max-width: 560px; margin: 0 auto; width: 100%; }
+.setup-section { margin-bottom: 22px; }
+.setup-label {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.mode-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.mode-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: .88rem;
+  padding: 9px 18px;
+  transition: all .15s;
+}
+.mode-btn:hover  { border-color: var(--gold); color: var(--goldlit); }
+.mode-btn.active { background: rgba(201,169,110,0.15); border-color: var(--gold); color: var(--goldlit); }
+
+.filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.filter-label-sm { font-size: .82rem; color: var(--muted); min-width: 75px; }
+.range-input {
+  width: 72px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: .9rem;
+  padding: 6px 10px;
+  outline: none;
+  text-align: center;
+}
+.range-input:focus { border-color: var(--gold); }
+.range-sep  { color: var(--muted); }
+.filter-count { font-size: .78rem; color: var(--blue); margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mini-reset-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: .7rem;
+  padding: 2px 9px;
+  border-radius: 6px;
+  transition: all .15s;
+}
+.mini-reset-btn:hover { border-color: #e05252; color: #e05252; }
+
+.size-row { display: flex; gap: 8px; }
+.size-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: .88rem;
+  padding: 7px 16px;
+  transition: all .15s;
+}
+.size-btn:hover  { border-color: var(--gold); color: var(--goldlit); }
+.size-btn.active { background: rgba(201,169,110,0.15); border-color: var(--gold); color: var(--goldlit); }
+.setup-error { color: var(--red); font-size: .85rem; margin-bottom: 10px; min-height: 20px; }
+.start-btn {
+  background: var(--gold);
+  color: #0d0d1a;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 12px 32px;
+  width: 100%;
+  transition: background .15s;
+}
+.start-btn:hover { background: var(--goldlit); }
+
+/*──────────────────────────────────────────────
+  TEST TAB — SESSION
+──────────────────────────────────────────────*/
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%; max-width: 600px;
+  margin: 0 auto 16px;
+  padding: 0 8px;
+}
+.session-mode-label { font-size: .85rem; color: var(--muted); }
+.quit-btn {
+  background: rgba(255,255,255,0.07);
+  color: var(--muted);
+  font-size: .8rem;
+  border-radius: 8px;
+  padding: 5px 12px;
+  transition: all .15s;
+}
+.quit-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+
+.sess-progress-wrap {
+  width: 100%; max-width: 600px;
+  margin: 0 auto 20px;
+  padding: 0 8px;
+}
+.sess-bar-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.sess-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 2px;
+  transition: width .3s ease;
+  width: 0%;
+}
+.sess-progress-info { display: flex; justify-content: space-between; align-items: center; }
+.sess-count  { font-size: .8rem; color: var(--muted); }
+.sess-scores { display: flex; gap: 14px; }
+.ss          { font-size: .88rem; font-weight: 600; }
+.ss-g        { color: var(--green); }
+.ss-r        { color: var(--red); }
+
+/* Card */
+.card-area {
+  width: 100%; max-width: 520px;
+  margin: 0 auto 20px;
+  perspective: 1000px;
+}
+.card-wrap {
+  width: 100%;
+  aspect-ratio: 4/3;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .5s cubic-bezier(.4,0,.2,1);
+  cursor: pointer;
+}
+.card-wrap.flipped { transform: rotateY(180deg); }
+.card-face {
+  position: absolute; inset: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+.card-back { transform: rotateY(180deg); }
+.card-tag {
+  position: absolute; top: 14px; left: 18px;
+  font-size: .7rem; color: var(--muted); letter-spacing: .04em;
+}
+.card-tap {
+  position: absolute; bottom: 14px;
+  font-size: .72rem; color: var(--muted2);
+  letter-spacing: .04em;
+}
+/* Front */
+.card-word     { font-size: 2.8rem; font-weight: 700; color: var(--goldlit); text-align: center; line-height: 1.2; }
+.card-reading  { font-size: 1rem; color: var(--muted); margin-top: 8px; text-align: center; }
+.card-meaning-q { font-size: 1.5rem; font-weight: 700; color: var(--text); text-align: center; line-height: 1.35; }
+.card-hint     { font-size: .8rem; color: var(--muted); margin-top: 10px; text-align: center; font-style: italic; }
+/* Back */
+.back-word     { font-size: 2.2rem; font-weight: 700; color: var(--goldlit); text-align: center; }
+.back-reading  { font-size: .95rem; color: var(--muted); margin-top: 4px; margin-bottom: 10px; text-align: center; }
+.back-meaning  { font-size: 1.05rem; font-weight: 600; color: var(--text); text-align: center; margin-bottom: 8px; }
+.back-mnemonic {
+  font-size: .78rem; color: var(--muted); text-align: center;
+  background: var(--bg3); border-radius: 8px; padding: 7px 12px;
+  line-height: 1.55; max-width: 100%;
+}
+.back-colloc {
+  font-size: .75rem; color: var(--blue); text-align: center;
+  margin-top: 6px; line-height: 1.5; max-width: 100%;
+}
+
+/* ── Gapfill mode ─────────────────────────────── */
+.gapfill-english {
+  font-size: 1.15rem; font-weight: 700; color: var(--text);
+  text-align: center; line-height: 1.4; margin-bottom: 16px;
+}
+.gapfill-sentence-q {
+  font-size: 1.1rem; color: var(--muted);
+  text-align: center; line-height: 1.8; max-width: 100%;
+}
+.gapfill-gap {
+  display: inline-block; color: var(--gold);
+  border-bottom: 2px solid var(--gold);
+  padding: 0 6px; font-weight: 700; letter-spacing: .15em;
+}
+.gapfill-sentence-a {
+  font-size: 1.15rem; color: var(--text);
+  text-align: center; line-height: 2.4; max-width: 100%;
+}
+.gapfill-answer-word { color: var(--goldlit); font-weight: 700; }
+.gapfill-sentence-en {
+  font-size: .92rem; color: var(--muted); text-align: center;
+  line-height: 1.5; margin-bottom: 14px; font-style: italic; max-width: 100%;
+}
+ruby { ruby-align: center; }
+rt   { font-size: .55em; color: var(--muted); }
+
+.ans-row {
+  display: none;
+  gap: 16px;
+  justify-content: center;
+  width: 100%; max-width: 520px;
+  margin: 0 auto 10px;
+}
+.ans-btn {
+  flex: 1; max-width: 220px;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: .95rem; font-weight: 700;
+  transition: all .15s;
+}
+.btn-wrong   { background: rgba(224,82,82,0.15);  color: var(--red);   border: 1px solid rgba(224,82,82,0.3); }
+.btn-correct { background: rgba(76,175,121,0.15); color: var(--green); border: 1px solid rgba(76,175,121,0.3); }
+.btn-wrong:hover   { background: rgba(224,82,82,0.28); }
+.btn-correct:hover { background: rgba(76,175,121,0.28); }
+.key-hint-test { font-size: .72rem; color: var(--muted2); text-align: center; letter-spacing: .04em; }
+
+/* Done screen */
+#testDone {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  padding: 40px;
+}
+.done-emoji  { font-size: 3rem; }
+.done-title  { font-size: 1.6rem; font-weight: 700; color: var(--goldlit); }
+.done-pct    { font-size: 1.2rem; color: var(--text); }
+.done-detail { font-size: .88rem; color: var(--muted); }
+.done-btns   { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+.done-btn    { border-radius: 10px; font-size: .9rem; font-weight: 600; padding: 10px 24px; }
+.done-btn-again { background: var(--gold); color: #0d0d1a; }
+.done-btn-again:hover { background: var(--goldlit); }
+.done-btn-setup { background: var(--bg2); color: var(--text); border: 1px solid var(--border); }
+.done-btn-setup:hover { border-color: var(--gold); }
+
+/*──────────────────────────────────────────────
+  DETAIL MODAL
+──────────────────────────────────────────────*/
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.72);
+  z-index: 200;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 28px 28px 24px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+.modal-close {
+  position: absolute; top: 14px; right: 16px;
+  background: rgba(255,255,255,0.07);
+  color: var(--muted);
+  border-radius: 8px;
+  width: 30px; height: 30px;
+  font-size: .9rem;
+  transition: all .15s;
+}
+.modal-close:hover { background: rgba(255,255,255,0.15); color: var(--text); }
+.modal-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-right: 42px;
+}
+.modal-nav-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: .8rem;
+  padding: 6px 14px;
+  border-radius: 8px;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.modal-nav-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--goldlit); }
+.modal-nav-btn:disabled { opacity: .3; cursor: default; }
+.modal-nav-pos { font-size: .72rem; color: var(--muted2); white-space: nowrap; }
+.modal-word-big { font-size: 2.8rem; font-weight: 700; color: var(--goldlit); line-height: 1.2; margin-bottom: 4px; }
+.modal-reading  { font-size: 1rem; color: var(--muted); margin-bottom: 5px; }
+.modal-meaning  { font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+.modal-badges   { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.modal-grid     { display: flex; flex-direction: column; gap: 10px; }
+.modal-field {
+  background: var(--bg3);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.modal-field label {
+  font-size: .65rem; text-transform: uppercase;
+  letter-spacing: .09em; color: var(--gold);
+  display: block; margin-bottom: 8px; font-weight: 700;
+}
+.modal-field .val {
+  font-size: .88rem; line-height: 1.75; white-space: pre-line;
+}
+.modal-field .val.empty { color: var(--muted); font-style: italic; }
+
+/* ── Mnemonic ───────────────────────────────────────────── */
+.mnemonic-body { font-size: .87rem; line-height: 1.8; color: var(--text); }
+.mnemonic-main { margin-bottom: 10px; }
+.mnemonic-subsections { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.mnemonic-sub {
+  border-left: 2px solid var(--gold);
+  padding: 6px 10px;
+  background: rgba(201,169,110,0.06);
+  border-radius: 0 8px 8px 0;
+}
+.mnemonic-sub-label {
+  font-size: .68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--gold); margin-bottom: 4px;
+  display: flex; align-items: center; gap: 5px;
+}
+.mnemonic-sub-text { font-size: .85rem; line-height: 1.7; color: var(--text); }
+
+/* ── Collocations ───────────────────────────────────────── */
+.colloc-chips {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+}
+.colloc-chip {
+  background: rgba(91,140,255,0.12);
+  border: 1px solid rgba(91,140,255,0.28);
+  color: var(--blue);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: .8rem;
+  white-space: nowrap;
+}
+.colloc-patterns { display: flex; flex-direction: column; gap: 10px; }
+.colloc-pattern {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.cp-header {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;
+}
+.cp-num {
+  font-size: 1rem; font-weight: 700; color: var(--gold);
+  line-height: 1; flex-shrink: 0;
+}
+.cp-label { font-size: .82rem; color: var(--text); font-weight: 600; }
+.cp-label-desc { color: var(--muted); font-weight: 400; }
+.cp-ja { font-size: .9rem; color: var(--text); margin-bottom: 3px; line-height: 1.6; }
+.cp-en { font-size: .8rem; color: var(--muted); font-style: italic; }
+
+/* ── 例文 ───────────────────────────────────────────────── */
+.rei-block {
+  border-left: 3px solid var(--purple);
+  padding: 10px 14px;
+  background: rgba(167,139,250,0.05);
+  border-radius: 0 10px 10px 0;
+}
+.rei-ja-ruby {
+  font-size: .95rem; line-height: 2.1; color: var(--text); margin-bottom: 6px;
+}
+.rei-en {
+  font-size: .82rem; color: var(--muted); font-style: italic; line-height: 1.6;
+}
+ruby { ruby-align: center; }
+rt   { font-size: .55em; color: var(--muted); }
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.modal-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: .82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all .15s;
+}
+.modal-action-btn:hover { border-color: var(--gold); color: var(--goldlit); }
+.modal-action-btn.active-star  { background: rgba(201,169,110,0.15); border-color: var(--gold); color: var(--goldlit); }
+.modal-action-btn.active-review { background: rgba(224,82,82,0.12); border-color: rgba(224,82,82,0.4); color: #e05252; }
+.modal-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* ══ MOBILE (≤ 768px) ══════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Unlock the full-height flex lock */
+  html, body { height: auto; min-height: 100svh; }
+
+  /* Header: title takes its own row, tabs fill the row below equally */
+  .app-header { flex-wrap: wrap; padding: 0; }
+  .app-title {
+    flex: 0 0 100%; border-right: none; margin-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px; font-size: .9rem;
+  }
+  .tab-btn { flex: 1; height: 44px; font-size: .82rem; padding: 0 10px; }
+  .header-count { display: none; }
+
+  /* Panels: natural page scroll */
+  .tab-panel { overflow: visible; flex: none; padding: 16px 14px; max-width: 100%; }
+  .tab-panel.active { display: block; }
+
+  /* Grids */
+  .results-grid { grid-template-columns: 1fr; }
+  .modal-two-col { grid-template-columns: 1fr; }
+  .browse-dropdowns { flex-direction: column; }
+  .ms-dropdown { max-width: 100%; }
+
+  /* Test panel */
+  .test-setup { padding: 16px 0; max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingPanel">
+  <div class="loader"></div>
+  <div id="loadMsg">Loading vocabulary from Google Sheets…</div>
+</div>
+
+<!-- App -->
+<div id="appRoot">
+
+  <header class="app-header">
+    <div class="app-title">📖 Monkey no Aware</div>
+    <button class="tab-btn active" onclick="switchTab('search')">Search</button>
+    <button class="tab-btn"        onclick="switchTab('browse')">Browse</button>
+    <button class="tab-btn"        onclick="switchTab('test')">Test</button>
+    <div class="header-count" id="headerCount"></div>
+  </header>
+
+  <!-- ── Search ── -->
+  <div class="tab-panel active" id="tabSearch">
+    <div class="search-bar-wrap">
+      <input class="search-input" id="searchInput" type="search"
+             placeholder="Search word, reading, meaning, mnemonic…"
+             oninput="doSearch(this.value)">
+    </div>
+    <div class="search-hint" id="searchHint">Type to search across all 8,000 words.</div>
+    <div id="searchResults" class="search-results-wrap"></div>
+  </div>
+
+  <!-- ── Browse ── -->
+  <div class="tab-panel" id="tabBrowse">
+    <div class="browse-intro">Browse by WaniKani level and/or category. Select one or more from each dropdown to see their vocabulary.</div>
+    <div class="browse-dropdowns">
+      <div class="ms-dropdown" id="browseWkDropdown">
+        <button type="button" class="ms-dropdown-btn" onclick="toggleBrowseDropdown('browseWkDropdown')">
+          <span id="browseWkLabel">WaniKani levels…</span>
+          <span class="ms-caret">▾</span>
+        </button>
+        <div class="ms-dropdown-panel">
+          <div class="ms-dropdown-actions">
+            <button type="button" onclick="browseSelectAll('browseWkList')">Select all</button>
+            <button type="button" onclick="browseClearAll('browseWkList')">Clear</button>
+          </div>
+          <div class="ms-dropdown-list" id="browseWkList"></div>
+        </div>
+      </div>
+      <div class="ms-dropdown" id="browseCatDropdown">
+        <button type="button" class="ms-dropdown-btn" onclick="toggleBrowseDropdown('browseCatDropdown')">
+          <span id="browseCatLabel">Categories…</span>
+          <span class="ms-caret">▾</span>
+        </button>
+        <div class="ms-dropdown-panel">
+          <div class="ms-dropdown-actions">
+            <button type="button" onclick="browseSelectAll('browseCatList')">Select all</button>
+            <button type="button" onclick="browseClearAll('browseCatList')">Clear</button>
+          </div>
+          <div class="ms-dropdown-list" id="browseCatList"></div>
+        </div>
+      </div>
+    </div>
+    <div class="browse-mask-row">
+      <span class="browse-mask-label">Hide for testing:</span>
+      <button type="button" class="mask-toggle-btn" id="maskWordBtn"    onclick="toggleMask('word')">Word</button>
+      <button type="button" class="mask-toggle-btn" id="maskReadingBtn" onclick="toggleMask('reading')">Reading</button>
+      <button type="button" class="mask-toggle-btn" id="maskMeaningBtn" onclick="toggleMask('meaning')">Meaning</button>
+    </div>
+    <div class="browse-results" id="browseResults"></div>
+  </div>
+
+  <!-- ── Test ── -->
+  <div class="tab-panel" id="tabTest">
+
+    <!-- Setup -->
+    <div class="test-setup" id="testSetup">
+
+      <div class="setup-section">
+        <div class="setup-label">Test Mode</div>
+        <div class="mode-grid">
+          <button class="mode-btn active" data-mode="jp-en"    onclick="selectMode(this)">JP → English</button>
+          <button class="mode-btn"        data-mode="en-jp"   onclick="selectMode(this)">English → JP</button>
+          <button class="mode-btn"        data-mode="both"    onclick="selectMode(this)">Mixed</button>
+          <button class="mode-btn"        data-mode="gapfill" onclick="selectMode(this)">✏ Gapfill</button>
+        </div>
+      </div>
+
+      <div class="setup-section">
+        <div class="setup-label">Filter</div>
+        <div class="mode-grid">
+          <button class="mode-btn active" data-ft="all"      onclick="selectFilter(this)">All words</button>
+          <button class="mode-btn"        data-ft="wk"       onclick="selectFilter(this)">WK Level range</button>
+          <button class="mode-btn"        data-ft="category" onclick="selectFilter(this)">Category</button>
+          <button class="mode-btn"        data-ft="num"      onclick="selectFilter(this)">Word # range</button>
+          <button class="mode-btn"        data-ft="starred"  onclick="selectFilter(this)">⭐ Starred</button>
+          <button class="mode-btn"        data-ft="review"   onclick="selectFilter(this)">🔴 Needs review</button>
+        </div>
+        <div class="filter-count" id="starredCount"  style="display:none"></div>
+        <div class="filter-count" id="reviewCount"   style="display:none"></div>
+
+        <div id="filterWK" style="display:none">
+          <div class="filter-row">
+            <span class="filter-label-sm">WK Level</span>
+            <input class="range-input" id="wkFrom" type="number" value="1"  min="1" max="100">
+            <span class="range-sep">–</span>
+            <input class="range-input" id="wkTo"   type="number" value="10" min="1" max="100">
+          </div>
+          <div class="filter-count" id="wkCount"></div>
+        </div>
+
+        <div id="filterCategory" style="display:none">
+          <div style="margin-top:10px;font-size:.8rem;color:var(--muted);margin-bottom:8px">Select one or more categories:</div>
+          <div id="categoryPills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+          <div class="filter-count" id="categoryCount"></div>
+        </div>
+
+        <div id="filterNum" style="display:none">
+          <div class="filter-row">
+            <span class="filter-label-sm">Word #</span>
+            <input class="range-input" id="numFrom" type="number" value="1"   min="1">
+            <span class="range-sep">–</span>
+            <input class="range-input" id="numTo"   type="number" value="500" min="1">
+          </div>
+          <div class="filter-count" id="numCount"></div>
+        </div>
+      </div>
+
+      <div class="setup-section">
+        <div class="setup-label">Session Size</div>
+        <div class="size-row">
+          <button class="size-btn active" data-n="20"  onclick="selectSize(this)">20</button>
+          <button class="size-btn"        data-n="50"  onclick="selectSize(this)">50</button>
+          <button class="size-btn"        data-n="100" onclick="selectSize(this)">100</button>
+          <button class="size-btn"        data-n="0"   onclick="selectSize(this)">All</button>
+        </div>
+      </div>
+
+      <div class="setup-error" id="setupError"></div>
+      <button class="start-btn" onclick="startTest()">Start Session →</button>
+    </div>
+
+    <!-- Session -->
+    <div id="testSession" style="display:none; flex-direction:column; align-items:center; width:100%;">
+      <div class="session-header">
+        <span class="session-mode-label" id="sessionModeLabel"></span>
+        <button class="quit-btn" onclick="quitTest()">✕ End session</button>
+      </div>
+      <div class="sess-progress-wrap">
+        <div class="sess-bar-track"><div class="sess-bar-fill" id="sessBar"></div></div>
+        <div class="sess-progress-info">
+          <span class="sess-count" id="sessCount"></span>
+          <div class="sess-scores">
+            <span class="ss ss-g">✓ <span id="sessCorrect">0</span></span>
+            <span class="ss" style="color:#e67e22">～ <span id="sessPassive">0</span></span>
+            <span class="ss ss-r">✗ <span id="sessWrong">0</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-area">
+        <div class="card-wrap" id="testCard" onclick="flipTestCard()">
+          <div class="card-face card-front" id="cardFront">
+            <div class="card-tag" id="frontTag"></div>
+            <div id="frontContent"></div>
+            <div class="card-tap">tap to reveal · Space</div>
+          </div>
+          <div class="card-face card-back" id="cardBack">
+            <div class="card-tag" id="backTag"></div>
+            <div id="backContent"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ans-row" id="ansRow">
+        <button class="ans-btn btn-wrong"   onclick="testAnswer('miss')">✗ &nbsp;Missed</button>
+        <button class="ans-btn" style="background:rgba(230,126,34,.15);color:#e67e22;border-color:rgba(230,126,34,.3);" onclick="testAnswer('passive')">～ &nbsp;Know it, wouldn't use</button>
+        <button class="ans-btn btn-correct" onclick="testAnswer('ok')">✓ &nbsp;Got it!</button>
+      </div>
+      <div class="key-hint-test">Space: flip &nbsp;·&nbsp; ← missed &nbsp;·&nbsp; → got it</div>
+    </div>
+
+    <!-- Done -->
+    <div id="testDone">
+      <div class="done-emoji">🌸</div>
+      <div class="done-title">Session Complete!</div>
+      <div class="done-pct"    id="donePct"></div>
+      <div class="done-detail" id="doneDetail"></div>
+      <div id="doneLifetime" style="width:100%;max-width:480px;margin:16px auto 0;"></div>
+      <div class="done-btns">
+        <button class="done-btn done-btn-again" onclick="replayTest()">Same setup again</button>
+        <button class="done-btn done-btn-setup" onclick="backToSetup()">Change setup</button>
+      </div>
+    </div>
+
+  </div><!-- /#tabTest -->
+
+</div><!-- /#appRoot -->
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detailModal" onclick="closeModal(event)">
+  <div class="modal" id="modalContent">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div class="modal-nav-row" id="modalNavRow">
+      <button class="modal-nav-btn" id="modalPrevBtn" onclick="modalPrev()">‹ Prev</button>
+      <span class="modal-nav-pos" id="modalNavPos"></span>
+      <button class="modal-nav-btn" id="modalNextBtn" onclick="modalNext()">Next ›</button>
+    </div>
+    <div class="modal-word-big" id="mWord"></div>
+    <div class="modal-reading"  id="mReading"></div>
+    <div class="modal-meaning"  id="mMeaning"></div>
+    <div class="modal-badges"   id="mBadges"></div>
+    <div class="modal-actions">
+      <button class="modal-action-btn" id="modalStarBtn" onclick="toggleModalStar()">
+        <span id="modalStarIcon">☆</span>
+        <span id="modalStarLabel">Add to starred</span>
+      </button>
+      <button class="modal-action-btn" id="modalReviewBtn" onclick="toggleModalReview()">
+        <span>🔴</span>
+        <span id="modalReviewLabel">Flag for review</span>
+      </button>
+    </div>
+    <div class="modal-grid" id="mGrid"></div>
+  </div>
+</div>
+
+<script>
+/*══════════════════════════════════════════════
+  DATA STRUCTURES
+══════════════════════════════════════════════*/
+let ALL      = [];
+let byLevel  = {};
+let dataReady = false;
+let batch1   = null;
+let batch2   = null;
+let batch3   = null;
+
+const SHEET_ID = '1pFN9GkciYSqEQoPT4WboOcFkQJGGNH4twjnQGVyEuaw';
+const VOCAB_DATA_CACHE_KEY = 'monkey-vocab-data-cache';
+
+// Parse '心配（しんぱい）' → {word:'心配', reading:'しんぱい'}
+function parseWordField(raw) {
+  if (!raw) return { word: '', reading: '' };
+  const m = raw.match(/^(.+?)（(.+?)）$/);
+  if (m) return { word: m[1], reading: m[2] };
+  return { word: raw, reading: raw };
+}
+
+function parseRow(r) {
+  const c = r.c || [];
+  const v = i => {
+    if (!c[i]) return '';
+    if (c[i].v != null) return String(c[i].v).trim();
+    if (c[i].f != null) return String(c[i].f).trim();
+    return '';
+  };
+  // rawCell: for mixed columns (number OR text), checks all JSONP fields
+  const rawCell = cell => {
+    if (!cell) return '';
+    if (cell.v != null) return String(cell.v).trim();
+    if (cell.f != null) return String(cell.f).trim();
+    // Some Sheets versions put text in 'p' (properties) or as a string label
+    if (cell.p != null) return String(cell.p).trim();
+    return '';
+  };
+  const n = i => (c[i] && c[i].v != null) ? Number(c[i].v) : null;
+  const pw = parseWordField(v(1));
+
+  // WK field (col 6 / index 5): numeric WaniKani level 1-60, or blank. Never text anymore.
+  function parseWK(raw) {
+    if (!raw) return null;
+    const num = Number(raw);
+    if (!isNaN(num) && num >= 1) return num;
+    return null; // legacy stray text in this column is ignored — see catRaw fallback below
+  }
+
+  // Category field (col 16 / index 15): text label for non-WK "extra vocab".
+  // Falls back to reading column 5 as text if col 15 is empty and col 5 holds
+  // non-numeric text — keeps older, not-yet-repasted sheet data working too.
+  const catRaw = v(15);
+  const col5Raw = rawCell(c[5]);
+  const legacyCatFallback = (!catRaw && col5Raw && isNaN(Number(col5Raw))) ? col5Raw : '';
+  const cat = catRaw || legacyCatFallback || null;
+
+  return {
+    num:      n(0),
+    raw:      v(1),
+    word:     pw.word,
+    reading:  pw.reading,
+    meaning:  v(2),
+    mnemonic: v(3),
+    colloc:   v(4),
+    wk:       parseWK(col5Raw),
+    cat:      cat,
+    rei:      v(6),   // 例文
+    type:     v(7),   // Type
+    register: v(8),   // Register
+    nuance:   v(9),   // Nuance
+    cult:     v(10),  // Cultural Notes
+    fixed:    v(11),  // Fixed Expressions
+    gou:      v(12),  // Compounds
+    kanren:   v(13),  // Related Words
+    tai:      v(14),  // Antonyms
+    _idx:     ''
+  };
+}
+
+function buildIndex(w) {
+  w._idx = [w.word, w.reading, w.meaning, w.mnemonic, w.colloc,
+            w.type, w.nuance, w.cult, w.fixed, w.cat || '',
+            w.rei, w.gou, w.kanren, w.tai]
+    .join(' ').toLowerCase();
+  return w;
+}
+
+/*══════════════════════════════════════════════
+  LOADING — three JSONP batches (4000 each, covers up to 12,000 rows)
+══════════════════════════════════════════════*/
+// Builds ALL/byLevel and paints the app from a flat array of raw gviz rows —
+// shared by the live 3-batch merge below and by the offline-cache path, so a
+// cached load renders through exactly the same logic as a fresh one.
+function applyVocabRows(rawRows) {
+  window._rawRows = rawRows;
+  ALL = rawRows
+    .map(parseRow)
+    .filter(w => w.word && w.meaning)
+    .map(buildIndex);
+
+  // Stable index into ALL, stamped on each word so lists (search results,
+  // browse results) can look up a word's position in O(1) instead of ALL.indexOf(w).
+  ALL.forEach((w, i) => { w._i = i; });
+
+  byLevel = {};
+  ALL.forEach(w => {
+    // A word appears under every bucket it qualifies for: its WK level AND its
+    // category, if both are set. If it has neither, it falls into '__other__'.
+    const buckets = [];
+    if (w.wk !== null && w.wk !== undefined) buckets.push(w.wk);
+    if (w.cat) buckets.push(w.cat);
+    if (!buckets.length) buckets.push('__other__');
+
+    buckets.forEach(lv => {
+      if (!byLevel[lv]) byLevel[lv] = [];
+      byLevel[lv].push(w);
+    });
+  });
+
+  document.getElementById('headerCount').textContent =
+    ALL.length.toLocaleString() + ' words loaded';
+  document.getElementById('searchHint').textContent =
+    'Type to search all ' + ALL.length.toLocaleString() + ' words.';
+
+  document.getElementById('loadingPanel').style.display = 'none';
+  document.getElementById('appRoot').style.display = 'flex';
+  buildBrowseLevels();
+  updateRangeCounts();
+  ['wkFrom','wkTo','numFrom','numTo'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateRangeCounts)
+  );
+
+  // Diagnostic helper — run debugWK() in browser console
+  window.debugWK = function() {
+    const cats  = ALL.filter(w => w.cat);
+    const nulls = ALL.filter(w => w.wk === null && !w.cat);
+    const nums  = ALL.filter(w => typeof w.wk === 'number');
+    console.log(`Breakdown — numeric WK: ${nums.length}, categories: ${cats.length}, neither (unprocessed): ${nulls.length}`);
+    if (cats.length) console.log('Categories found:', [...new Set(cats.map(w => w.cat))]);
+    console.log('Sample unprocessed words:', nulls.slice(0,5).map(w => w.word));
+  };
+}
+
+// OFFLINE CACHE: on iPhone (or anywhere without a live connection to Google
+// Sheets), this restores whatever the last successful pull looked like, so the
+// app opens instantly with real data instead of an empty word list. It renders
+// BEFORE loadData() fires, so a real live pull — when there is one — simply
+// overwrites this a moment later via the normal mergeAndInit() path below.
+function tryVocabCache() {
+  try {
+    const raw = localStorage.getItem(VOCAB_DATA_CACHE_KEY);
+    if (!raw) return false;
+    const rows = JSON.parse(raw);
+    if (!rows || !rows.length) return false;
+    applyVocabRows(rows);
+    return true;
+  } catch (e) { return false; }
+}
+
+function mergeAndInit() {
+  if (!batch1 || !batch2 || !batch3) return;
+  dataReady = true;
+
+  const rows1 = (batch1.table && batch1.table.rows) ? batch1.table.rows : [];
+  const rows2 = (batch2.table && batch2.table.rows) ? batch2.table.rows : [];
+  const rows3 = (batch3.table && batch3.table.rows) ? batch3.table.rows : [];
+  const rawRows = [...rows1, ...rows2, ...rows3];
+
+  applyVocabRows(rawRows);
+
+  // Only overwrite the offline cache when this merge actually produced real
+  // words — a total network failure forces all three batches to {rows:[]},
+  // and we never want THAT to wipe out a perfectly good earlier cache.
+  if (rawRows.length) {
+    try { localStorage.setItem(VOCAB_DATA_CACHE_KEY, JSON.stringify(rawRows)); } catch (e) {}
+  }
+}
+
+window.handleVocabBatch1 = function(resp) {
+  if (!resp || resp.status === 'error') {
+    const msg = (resp && resp.errors && resp.errors[0])
+      ? resp.errors[0].message : 'Access denied';
+    showLoadError(msg + ' — Open this file in a browser where you are logged into Google.');
+    return;
+  }
+  batch1 = resp;
+  document.getElementById('loadMsg').textContent = 'Loading words 4,001–8,000…';
+  mergeAndInit();
+};
+
+window.handleVocabBatch2 = function(resp) {
+  batch2 = (resp && resp.status !== 'error' && resp.table) ? resp : { table: { rows: [] } };
+  document.getElementById('loadMsg').textContent = 'Loading words 8,001–12,000…';
+  mergeAndInit();
+};
+
+window.handleVocabBatch3 = function(resp) {
+  batch3 = (resp && resp.status !== 'error' && resp.table) ? resp : { table: { rows: [] } };
+  mergeAndInit();
+};
+
+function loadData() {
+  const base = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
+    '/gviz/tq?tqx=out:json';
+
+  const s1 = document.createElement('script');
+  s1.src = base + ';responseHandler:handleVocabBatch1&tq=select%20*%20limit%204000%20offset%200';
+  s1.onerror = () => {
+    if (!dataReady) { batch1 = { table: { rows: [] } }; mergeAndInit(); }
+  };
+  document.head.appendChild(s1);
+
+  const s2 = document.createElement('script');
+  s2.src = base + ';responseHandler:handleVocabBatch2&tq=select%20*%20limit%204000%20offset%204000';
+  s2.onerror = () => {
+    if (!dataReady) { batch2 = { table: { rows: [] } }; mergeAndInit(); }
+  };
+  document.head.appendChild(s2);
+
+  const s3 = document.createElement('script');
+  s3.src = base + ';responseHandler:handleVocabBatch3&tq=select%20*%20limit%204000%20offset%208000';
+  s3.onerror = () => {
+    if (!dataReady) { batch3 = { table: { rows: [] } }; mergeAndInit(); }
+  };
+  document.head.appendChild(s3);
+
+  // Timeout safety net
+  setTimeout(() => {
+    if (!dataReady) {
+      if (!batch1) batch1 = { table: { rows: [] } };
+      if (!batch2) batch2 = { table: { rows: [] } };
+      if (!batch3) batch3 = { table: { rows: [] } };
+      mergeAndInit();
+      showLoadError('Timed out. Make sure you are logged into Google in this browser.');
+    }
+  }, 18000);
+}
+
+function showLoadError(msg) {
+  const el = document.getElementById('loadMsg');
+  el.innerHTML = '<span style="color:#e05252">⚠ ' + msg + '</span>';
+  const loader = document.querySelector('.loader');
+  if (loader) loader.style.display = 'none';
+}
+
+/*══════════════════════════════════════════════
+  TABS
+══════════════════════════════════════════════*/
+function switchTab(name) {
+  const names = ['search', 'browse', 'test'];
+  document.querySelectorAll('.tab-btn').forEach((b, i) =>
+    b.classList.toggle('active', names[i] === name)
+  );
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab' + name[0].toUpperCase() + name.slice(1))
+    .classList.add('active');
+}
+
+/*══════════════════════════════════════════════
+  SEARCH
+══════════════════════════════════════════════*/
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+// Secondary ("related / part of a record") fields, in priority order for labeling.
+const SEARCH_SECONDARY_FIELDS = [
+  ['mnemonic', 'mnemonic'],
+  ['colloc',   'collocations'],
+  ['rei',      'example sentence'],
+  ['fixed',    'fixed expression'],
+  ['gou',      'compounds'],
+  ['kanren',   'related words'],
+  ['tai',      'antonyms'],
+  ['cult',     'cultural notes'],
+  ['nuance',   'nuance'],
+  ['type',     'type'],
+  ['cat',      'category']
+];
+
+// Classifies how (and whether) a word matches query q (already trimmed + lowercased).
+// Returns { tier: 'exact'|'close'|'related', field? } or null if no match.
+function classifyMatch(w, q) {
+  const wordL    = (w.word    || '').toLowerCase();
+  const readingL = (w.reading || '').toLowerCase();
+  const meaningL = (w.meaning || '').toLowerCase();
+
+  if (wordL === q || readingL === q) return { tier: 'exact' };
+
+  if (meaningL) {
+    const terms = meaningL.split(/[;,、，]/).map(s => s.trim()).filter(Boolean);
+    if (terms.includes(q)) return { tier: 'exact' };
+  }
+
+  if (wordL.includes(q) || readingL.includes(q) || meaningL.includes(q)) {
+    return { tier: 'close' };
+  }
+
+  for (const [key, label] of SEARCH_SECONDARY_FIELDS) {
+    const val = w[key];
+    if (val && String(val).toLowerCase().includes(q)) {
+      return { tier: 'related', field: label };
+    }
+  }
+  return null;
+}
+
+function resultCardHTML(w, relatedField) {
+  const idx = w._i;
+  const readingDiff = w.reading && w.reading !== w.word;
+  return `<div class="result-card" onclick="openModal(${idx})">
+      <div class="result-word">${esc(w.word)}</div>
+      <div class="result-reading">${readingDiff ? esc(w.reading) : ''}</div>
+      <div class="result-meaning">${esc(w.meaning)}</div>
+      <div class="result-meta">
+        ${(w.wk !== null && w.wk !== undefined) ? `<span class="badge badge-wk">WK ${w.wk}</span>` : (w.cat ? `<span class="badge badge-cat">${esc(w.cat)}</span>` : '')}
+        ${w.rei ? `<span class="badge badge-ex">例文</span>` : ''}
+        ${w.num && starredNums.has(w.num) ? `<span class="badge badge-star">★</span>` : ''}
+        ${relatedField ? `<span class="badge badge-related">found in: ${esc(relatedField)}</span>` : ''}
+        ${w.num ? `<span style="font-size:.7rem;color:var(--muted)">#${w.num}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+function doSearch(q) {
+  const grid = document.getElementById('searchResults');
+  const hint = document.getElementById('searchHint');
+  q = q.trim().toLowerCase();
+  if (!q) {
+    grid.innerHTML = '';
+    hint.textContent = 'Type to search all ' + ALL.length.toLocaleString() + ' words.';
+    return;
+  }
+
+  const SECTION_CAP = 60;
+  const exact = [], close = [], related = [];
+  for (const w of ALL) {
+    if (!w._idx.includes(q)) continue;
+    const m = classifyMatch(w, q);
+    if (!m) continue;
+    if (m.tier === 'exact') exact.push(w);
+    else if (m.tier === 'close') close.push(w);
+    else related.push({ w, field: m.field });
+  }
+
+  const total = exact.length + close.length + related.length;
+  hint.textContent = total ? total.toLocaleString() + ' results' : '0 results';
+
+  currentListContext = [
+    ...exact.map(w => w._i),
+    ...close.map(w => w._i),
+    ...related.map(r => r.w._i)
+  ];
+
+  if (!total) {
+    grid.innerHTML = '<div class="results-empty">No matches found.</div>';
+    return;
+  }
+
+  const section = (title, count, cap, cardsHTML) => {
+    if (!count) return '';
+    const shown = Math.min(count, cap);
+    const capHint = count > cap ? `Showing first ${shown.toLocaleString()} of ${count.toLocaleString()}` : '';
+    return `<div class="results-section-title">${title}<span class="results-section-count">${count.toLocaleString()}</span></div>
+      ${capHint ? `<div class="results-section-hint">${capHint}</div>` : ''}
+      <div class="results-grid">${cardsHTML}</div>`;
+  };
+
+  grid.innerHTML =
+    section('Exact matches', exact.length, SECTION_CAP,
+      exact.slice(0, SECTION_CAP).map(w => resultCardHTML(w)).join('')) +
+    section('Close matches', close.length, SECTION_CAP,
+      close.slice(0, SECTION_CAP).map(w => resultCardHTML(w)).join('')) +
+    section('Found in related entries', related.length, SECTION_CAP,
+      related.slice(0, SECTION_CAP).map(r => resultCardHTML(r.w, r.field)).join(''));
+}
+
+/*══════════════════════════════════════════════
+  BROWSE
+══════════════════════════════════════════════*/
+let browseKeyMap = {};          // dropdown option value -> actual byLevel key
+let selectedBrowseValues = new Set();
+
+function buildBrowseLevels() {
+  const wkListEl  = document.getElementById('browseWkList');
+  const catListEl = document.getElementById('browseCatList');
+  const keys = Object.keys(byLevel);
+  browseKeyMap = {};
+
+  // Separate: WK levels (1-60), numeric categories (61+), text categories, no-level
+  const wkLevels = keys
+    .filter(k => !isNaN(Number(k)) && k !== '__other__' && Number(k) <= 60)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  const numericCategories = keys
+    .filter(k => !isNaN(Number(k)) && k !== '__other__' && Number(k) > 60)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  const categories = keys
+    .filter(k => isNaN(Number(k)) && k !== '__other__')
+    .sort();
+
+  const hasOther = !!byLevel['__other__'];
+
+  const option = (val, label, count) => {
+    const checked = selectedBrowseValues.has(val) ? ' checked' : '';
+    return `<label class="ms-option">
+      <input type="checkbox" value="${val}"${checked} onchange="toggleBrowseValue('${val}', this.checked)">
+      <span class="ms-option-text">${esc(String(label))}</span>
+      <span class="ms-option-count">${count}</span>
+    </label>`;
+  };
+
+  // WaniKani dropdown
+  let wkHtml = '';
+  if (wkLevels.length) {
+    wkHtml = wkLevels.map(lv => {
+      const val = 'wk_' + lv;
+      browseKeyMap[val] = lv;
+      return option(val, 'Level ' + lv, byLevel[lv].length);
+    }).join('');
+  } else {
+    wkHtml = '<div style="padding:10px 8px;color:var(--muted);font-size:.82rem">No WaniKani levels found.</div>';
+  }
+  wkListEl.innerHTML = wkHtml;
+
+  // Categories dropdown (extra numeric vocab + text categories + uncategorised)
+  let catHtml = '';
+  if (numericCategories.length) {
+    catHtml += `<div class="ms-group-label">Extra Vocab</div>`;
+    catHtml += numericCategories.map(lv => {
+      const val = 'num_' + lv;
+      browseKeyMap[val] = lv;
+      return option(val, lv, byLevel[lv].length);
+    }).join('');
+  }
+  if (categories.length) {
+    catHtml += `<div class="ms-group-label">Categories</div>`;
+    catHtml += categories.map(cat => {
+      const val = 'cat_' + encodeURIComponent(cat);
+      browseKeyMap[val] = cat;
+      return option(val, cat, byLevel[cat].length);
+    }).join('');
+  }
+  if (hasOther) {
+    const val = 'other';
+    browseKeyMap[val] = '__other__';
+    catHtml += `<div class="ms-group-label">Other</div>`;
+    catHtml += option(val, 'No level', byLevel['__other__'].length);
+  }
+  if (!catHtml) catHtml = '<div style="padding:10px 8px;color:var(--muted);font-size:.82rem">No categories found.</div>';
+  catListEl.innerHTML = catHtml;
+
+  updateBrowseDropdownLabels();
+  renderBrowseResults();
+}
+
+function toggleBrowseDropdown(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+document.addEventListener('click', e => {
+  ['browseWkDropdown', 'browseCatDropdown'].forEach(id => {
+    const dd = document.getElementById(id);
+    if (dd && dd.classList.contains('open') && !dd.contains(e.target)) {
+      dd.classList.remove('open');
+    }
+  });
+});
+
+function toggleBrowseValue(val, checked) {
+  if (checked) selectedBrowseValues.add(val);
+  else selectedBrowseValues.delete(val);
+  updateBrowseDropdownLabels();
+  renderBrowseResults();
+}
+
+function browseSelectAll(listId) {
+  document.querySelectorAll('#' + listId + ' input[type="checkbox"]').forEach(cb => {
+    cb.checked = true;
+    selectedBrowseValues.add(cb.value);
+  });
+  updateBrowseDropdownLabels();
+  renderBrowseResults();
+}
+
+function browseClearAll(listId) {
+  document.querySelectorAll('#' + listId + ' input[type="checkbox"]').forEach(cb => {
+    cb.checked = false;
+    selectedBrowseValues.delete(cb.value);
+  });
+  updateBrowseDropdownLabels();
+  renderBrowseResults();
+}
+
+function updateBrowseDropdownLabels() {
+  let wkCount = 0, catCount = 0;
+  selectedBrowseValues.forEach(v => v.startsWith('wk_') ? wkCount++ : catCount++);
+  document.getElementById('browseWkLabel').textContent  = wkCount  === 0 ? 'WaniKani levels…' : wkCount  + ' selected';
+  document.getElementById('browseCatLabel').textContent = catCount === 0 ? 'Categories…'       : catCount + ' selected';
+}
+
+function renderBrowseResults() {
+  const container = document.getElementById('browseResults');
+
+  if (selectedBrowseValues.size === 0) {
+    container.innerHTML = '<div class="results-empty">Select one or more levels or categories above to see vocabulary.</div>';
+    return;
+  }
+
+  const seen = new Set();
+  let words = [];
+  selectedBrowseValues.forEach(val => {
+    const key = browseKeyMap[val];
+    (byLevel[key] || []).forEach(w => {
+      if (!seen.has(w)) { seen.add(w); words.push(w); }
+    });
+  });
+
+  words.sort((a, b) => (a.num || 0) - (b.num || 0));
+
+  currentListContext = words.map(w => w._i);
+
+  if (!words.length) {
+    container.innerHTML = '<div class="results-empty">No words found.</div>';
+    return;
+  }
+
+  const rows = words.map(w => {
+    const readingDiff = w.reading && w.reading !== w.word;
+    const levelLabel = (w.wk !== null && w.wk !== undefined)
+      ? 'WK ' + w.wk
+      : (w.cat ? esc(w.cat) : '—');
+    return `<tr onclick="openModal(${w._i})">
+      <td class="bt-word"><span class="bt-mask" onclick="toggleCellReveal(event,'word')">${esc(w.word)}</span>${w.num && starredNums.has(w.num) ? ' <span style="color:#ffc83c">★</span>' : ''}</td>
+      <td class="bt-reading">${readingDiff ? `<span class="bt-mask" onclick="toggleCellReveal(event,'reading')">${esc(w.reading)}</span>` : ''}</td>
+      <td class="bt-meaning"><span class="bt-mask" onclick="toggleCellReveal(event,'meaning')">${esc(w.meaning)}</span></td>
+      <td class="bt-level">${levelLabel}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="browse-table">
+      <thead><tr><th>Word</th><th>Reading</th><th>Meaning</th><th>Level</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="browse-count">${words.length.toLocaleString()} word${words.length === 1 ? '' : 's'}</div>
+  `;
+}
+
+// ── Self-test masking: hide word/reading/meaning columns, click a cell to reveal it ──
+let browseMask = { word: false, reading: false, meaning: false };
+
+function toggleMask(col) {
+  browseMask[col] = !browseMask[col];
+  const btnId = 'mask' + col.charAt(0).toUpperCase() + col.slice(1) + 'Btn';
+  document.getElementById(btnId).classList.toggle('active', browseMask[col]);
+  document.getElementById('browseResults').classList.toggle('mask-' + col, browseMask[col]);
+}
+
+function toggleCellReveal(e, col) {
+  if (!browseMask[col]) return; // column not masked — let click bubble to open the detail modal
+  e.stopPropagation();
+  e.currentTarget.classList.toggle('revealed');
+}
+
+/*══════════════════════════════════════════════
+  TEST — SETUP
+══════════════════════════════════════════════*/
+let testMode   = 'jp-en';
+let filterType = 'all';
+let testSize   = 20;
+let testQueue  = [];
+let testIdx    = 0;
+let testCorrect= 0;
+let testPassive= 0;
+let testWrong  = 0;
+let testFlipped= false;
+let testCardMode = 'jp-en';
+let lastFilterPool = null;
+
+function selectMode(btn) {
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  testMode = btn.dataset.mode;
+}
+function selectFilter(btn) {
+  document.querySelectorAll('[data-ft]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterType = btn.dataset.ft;
+  document.getElementById('filterWK').style.display        = filterType === 'wk'       ? '' : 'none';
+  document.getElementById('filterNum').style.display       = filterType === 'num'      ? '' : 'none';
+  document.getElementById('filterCategory').style.display  = filterType === 'category' ? '' : 'none';
+  document.getElementById('starredCount').style.display    = filterType === 'starred'  ? '' : 'none';
+  document.getElementById('reviewCount').style.display     = filterType === 'review'   ? '' : 'none';
+  if (filterType === 'category') buildCategoryPills();
+  updateRangeCounts();
+}
+
+// Track which categories are selected for the test filter
+let selectedCategories = new Set();
+
+function buildCategoryPills() {
+  const container = document.getElementById('categoryPills');
+  const cats = Object.keys(byLevel)
+    .filter(k => isNaN(Number(k)) && k !== '__other__')
+    .sort();
+  if (!cats.length) {
+    container.innerHTML = '<span style="color:var(--muted);font-size:.82rem">No categories found in your data yet.</span>';
+    return;
+  }
+  container.innerHTML = cats.map(cat => {
+    const active = selectedCategories.has(cat) ? ' active' : '';
+    return `<button class="mode-btn${active}" data-cat="${cat.replace(/"/g,'&quot;')}" onclick="toggleCategoryPill(this)">${esc(cat)} <span style="opacity:.5;font-size:.75em">(${(byLevel[cat]||[]).length})</span></button>`;
+  }).join('');
+}
+
+function toggleCategoryPill(btn) {
+  const cat = btn.dataset.cat;
+  if (selectedCategories.has(cat)) {
+    selectedCategories.delete(cat);
+    btn.classList.remove('active');
+  } else {
+    selectedCategories.add(cat);
+    btn.classList.add('active');
+  }
+  updateRangeCounts();
+}
+function selectSize(btn) {
+  document.querySelectorAll('[data-n]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  testSize = parseInt(btn.dataset.n) || 0;
+}
+
+function updateRangeCounts() {
+  const wkFrom = parseInt(document.getElementById('wkFrom').value)  || 1;
+  const wkTo   = parseInt(document.getElementById('wkTo').value)    || 60;
+  const nFrom  = parseInt(document.getElementById('numFrom').value) || 1;
+  const nTo    = parseInt(document.getElementById('numTo').value)   || 99999;
+  document.getElementById('wkCount').textContent =
+    ALL.filter(w => typeof w.wk === 'number' && w.wk >= wkFrom && w.wk <= wkTo).length + ' words in range';
+  document.getElementById('numCount').textContent =
+    ALL.filter(w => w.num && w.num >= nFrom && w.num <= nTo).length + ' words in range';
+  document.getElementById('starredCount').innerHTML =
+    `<span>${starredNums.size} ${starredNums.size === 1 ? 'word starred' : 'words starred'}</span>` +
+    (starredNums.size ? `<button type="button" class="mini-reset-btn" onclick="resetStarred()">Clear all</button>` : '');
+  document.getElementById('reviewCount').innerHTML =
+    `<span>${reviewNums.size} ${reviewNums.size === 1 ? 'word flagged for review' : 'words flagged for review'}</span>` +
+    (reviewNums.size ? `<button type="button" class="mini-reset-btn" onclick="resetReview()">Clear all</button>` : '');
+  // Category count
+  const catEl = document.getElementById('categoryCount');
+  if (catEl) {
+    if (selectedCategories.size === 0) {
+      catEl.textContent = 'No categories selected';
+    } else {
+      const total = [...selectedCategories].reduce((sum, cat) => sum + (byLevel[cat] || []).length, 0);
+      catEl.textContent = total + ' words in selected ' + (selectedCategories.size === 1 ? 'category' : 'categories');
+    }
+  }
+}
+
+function getFilteredPool() {
+  if (filterType === 'wk') {
+    const from = parseInt(document.getElementById('wkFrom').value) || 1;
+    const to   = parseInt(document.getElementById('wkTo').value)   || 60;
+    return ALL.filter(w => typeof w.wk === 'number' && w.wk >= from && w.wk <= to);
+  }
+  if (filterType === 'category') {
+    if (selectedCategories.size === 0) return [];
+    return ALL.filter(w => w.cat && selectedCategories.has(w.cat));
+  }
+  if (filterType === 'num') {
+    const from = parseInt(document.getElementById('numFrom').value) || 1;
+    const to   = parseInt(document.getElementById('numTo').value)   || 99999;
+    return ALL.filter(w => w.num && w.num >= from && w.num <= to);
+  }
+  if (filterType === 'starred') return ALL.filter(w => w.num && starredNums.has(w.num));
+  if (filterType === 'review')  return ALL.filter(w => w.num && reviewNums.has(w.num));
+  return ALL;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/*── Gapfill helpers ─────────────────────────────────────*/
+function reEscape(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+/*
+ * resolveWordInSentence(word, ja)
+ * Returns the form of `word` actually found in `ja`, or null.
+ * First tries an exact match; then tries stems (1–2 chars removed)
+ * followed by a hiragana conjugation character, to handle verbs/adjectives
+ * that appear conjugated in the example sentence (e.g. 食べる → 食べて).
+ */
+function resolveWordInSentence(word, ja) {
+  if (ja.includes(word)) return word;
+  for (let trim = 1; trim <= Math.min(2, word.length - 1); trim++) {
+    const stem = word.slice(0, -trim);
+    const m = ja.match(new RegExp(reEscape(stem) + '[ぁ-ん]'));
+    if (m) return m[0];
+  }
+  return null;
+}
+
+/* Split rei field — handles all three data formats consistently */
+function parseReiField(rei) {
+  if (!rei) return { ja: '', en: '' };
+
+  if (rei.includes('｜')) {
+    // Pipe-separated: ja｜en
+    const parts = rei.split('｜');
+    return { ja: (parts[0] || '').trim(), en: (parts[1] || '').trim() };
+  }
+
+  const sep = rei.includes('／') ? '／' : '/';
+  const parts = rei.split(sep).map(s => s.trim());
+  if (parts.length >= 3) {
+    // Three-part legacy: plain / furigana / english
+    return { ja: parts[0] || '', en: parts[2] || '' };
+  }
+  if (parts.length === 2) {
+    // Two-part current standard: plain / english
+    return { ja: parts[0] || '', en: parts[1] || '' };
+  }
+  // Japanese only
+  return { ja: parts[0] || rei, en: '' };
+}
+
+/* Convert word（reading） notation → <ruby>word<rt>reading</rt></ruby> */
+function renderFurigana(str) {
+  return str.replace(/([^（）\s、。！？「」【】｜／/]{1,12})（([ぁ-んァ-ンー]+)）/g,
+    '<ruby>$1<rt>$2</rt></ruby>');
+}
+
+function makeGapSentence(w) {
+  if (!w.rei) return '';
+  const { ja } = parseReiField(w.rei);
+  if (!ja) return '';
+  const form = resolveWordInSentence(w.word, ja);
+  if (!form) return '';
+  const MARK = '\x01TGT\x01';
+  const escaped = esc(ja);
+  const marked  = escaped.replace(new RegExp(reEscape(esc(form)), 'g'), MARK);
+  const withFuri = renderFurigana(marked);
+  return withFuri.split(MARK).join('<span class="gapfill-gap">＿＿＿</span>');
+}
+
+function makeRubySentence(w) {
+  if (!w.rei) return '';
+  const { ja } = parseReiField(w.rei);
+  if (!ja) return '';
+  const form = resolveWordInSentence(w.word, ja);
+  if (!form) return '';
+  // Show the conjugated form in the sentence; if it differs from the dict
+  // form, also append the dictionary form in parens so the learner sees both.
+  const hasReading = w.reading && w.reading !== w.word;
+  const rubySpan = hasReading
+    ? `<ruby class="gapfill-answer-word">${esc(form)}<rt>${esc(w.reading)}</rt></ruby>`
+    : `<span class="gapfill-answer-word">${esc(form)}</span>`;
+  const MARK = '\x01TGT\x01';
+  const escaped  = esc(ja);
+  const marked   = escaped.replace(new RegExp(reEscape(esc(form)), 'g'), MARK);
+  const withFuri = renderFurigana(marked);
+  return withFuri.split(MARK).join(rubySpan);
+}
+/*── end Gapfill helpers ─────────────────────────────────*/
+
+function startTest() {
+  document.getElementById('setupError').textContent = '';
+  let pool = getFilteredPool();
+  if (testMode === 'gapfill') pool = pool.filter(w => {
+    if (!w.rei) return false;
+    const { ja } = parseReiField(w.rei);
+    return ja && !!resolveWordInSentence(w.word, ja);
+  });
+  if (!pool.length) {
+    document.getElementById('setupError').textContent = 'No words match the current filter.';
+    return;
+  }
+  lastFilterPool = pool;
+  pool = shuffle(pool);
+  testQueue  = testSize > 0 ? pool.slice(0, testSize) : pool;
+  testIdx    = 0; testCorrect = 0; testPassive = 0; testWrong = 0;
+
+  document.getElementById('testSetup').style.display   = 'none';
+  document.getElementById('testDone').style.display    = 'none';
+  document.getElementById('testSession').style.display = 'flex';
+
+  const modeLabels = { 'jp-en':'JP → English', 'en-jp':'English → JP', 'both':'Mixed', 'gapfill':'✏ Gapfill' };
+  document.getElementById('sessionModeLabel').textContent =
+    modeLabels[testMode] + '  ·  ' + testQueue.length + ' cards';
+  document.getElementById('sessCorrect').textContent = '0';
+  document.getElementById('sessPassive').textContent = '0';
+  document.getElementById('sessWrong').textContent   = '0';
+  showTestCard();
+}
+
+/*══════════════════════════════════════════════
+  TEST — SESSION
+══════════════════════════════════════════════*/
+function showTestCard() {
+  if (testIdx >= testQueue.length) { showTestDone(); return; }
+
+  const w = testQueue[testIdx];
+  testFlipped = false;
+  document.getElementById('testCard').classList.remove('flipped');
+  document.getElementById('ansRow').style.display = 'none';
+
+  testCardMode = testMode === 'both'
+    ? (Math.random() < 0.5 ? 'jp-en' : 'en-jp')
+    : testMode;
+
+  const fTag = document.getElementById('frontTag');
+  const bTag = document.getElementById('backTag');
+  const fCon = document.getElementById('frontContent');
+  const bCon = document.getElementById('backContent');
+  const readingDiff = w.reading && w.reading !== w.word;
+
+  /* ── Gapfill branch ─────────────────────────────────── */
+  if (testCardMode === 'gapfill') {
+    const reiData = parseReiField(w.rei);
+    fTag.textContent = '例文 — Fill the gap';
+    bTag.textContent = '答え — Answer';
+    fCon.innerHTML = `<div class="gapfill-english">${esc(w.meaning)}</div>
+      ${reiData.en ? `<div class="gapfill-sentence-en">${esc(reiData.en)}</div>` : ''}
+      <div class="gapfill-sentence-q">${makeGapSentence(w)}</div>`;
+    bCon.innerHTML = `<div class="gapfill-sentence-a">${makeRubySentence(w)}</div>
+      <div style="margin-top:14px;text-align:center;font-size:.88rem;color:var(--muted)">
+        ${readingDiff
+          ? `<ruby style="color:var(--goldlit);font-weight:700;font-size:1.1em">${esc(w.word)}<rt style="color:var(--muted)">${esc(w.reading)}</rt></ruby>`
+          : `<span style="color:var(--goldlit);font-weight:700;font-size:1.1em">${esc(w.word)}</span>`}
+      </div>`;
+    const pct = (testIdx / testQueue.length) * 100;
+    document.getElementById('sessBar').style.width = pct + '%';
+    document.getElementById('sessCount').textContent = 'Card ' + (testIdx + 1) + ' of ' + testQueue.length;
+    return;
+  }
+  /* ── end Gapfill branch ─────────────────────────────── */
+
+  if (testCardMode === 'jp-en') {
+    fTag.textContent = '語彙 — What does this mean?';
+    bTag.textContent = 'Answer';
+    // Front: word + reading
+    fCon.innerHTML = `<div class="card-word">${esc(w.word)}</div>
+      ${readingDiff ? `<div class="card-reading">${esc(w.reading)}</div>` : ''}`;
+    // Back: meaning only
+    bCon.innerHTML = `<div class="back-meaning">${esc(w.meaning)}</div>`;
+  } else {
+    fTag.textContent = 'English — Which Japanese word?';
+    bTag.textContent = 'Answer';
+    // Front: meaning only
+    fCon.innerHTML = `<div class="card-meaning-q">${esc(w.meaning)}</div>`;
+    // Back: word + reading + meaning
+    bCon.innerHTML = `<div class="back-word">${esc(w.word)}</div>
+      ${readingDiff ? `<div class="back-reading">${esc(w.reading)}</div>` : ''}
+      <div class="back-meaning">${esc(w.meaning)}</div>`;
+  }
+
+  const pct = (testIdx / testQueue.length) * 100;
+  document.getElementById('sessBar').style.width = pct + '%';
+  document.getElementById('sessCount').textContent =
+    'Card ' + (testIdx + 1) + ' of ' + testQueue.length;
+}
+
+function flipTestCard() {
+  if (!testQueue.length) return;
+  testFlipped = !testFlipped;
+  document.getElementById('testCard').classList.toggle('flipped', testFlipped);
+  document.getElementById('ansRow').style.display = testFlipped ? 'flex' : 'none';
+}
+
+function testAnswer(result) {
+  if (!testFlipped) return;
+  const w = testQueue[testIdx];
+
+  // Update session counters
+  if (result === 'ok')      { testCorrect++; document.getElementById('sessCorrect').textContent = testCorrect; }
+  else if (result === 'passive') { testPassive++; document.getElementById('sessPassive').textContent = testPassive; }
+  else                      { testWrong++;   document.getElementById('sessWrong').textContent   = testWrong; }
+
+  // Persist to lifetime stats
+  if (w && w.num) {
+    const lt = loadLifetime();
+    if (!lt.words[w.num]) lt.words[w.num] = { word: w.word, correct: 0, passive: 0, wrong: 0 };
+    if (result === 'ok')           lt.words[w.num].correct++;
+    else if (result === 'passive') lt.words[w.num].passive++;
+    else                           lt.words[w.num].wrong++;
+    lt.total[result === 'ok' ? 'correct' : result === 'passive' ? 'passive' : 'wrong']++;
+
+    // Auto-flag as "needs review" if missed or passive 2+ times, auto-clear if got it naturally 3+ times
+    const wStats = lt.words[w.num];
+    if (result === 'miss' || (result === 'passive' && wStats.passive >= 2)) {
+      reviewNums.add(w.num);
+      saveReview();
+    }
+    if (result === 'ok' && wStats.correct >= 3) {
+      reviewNums.delete(w.num);
+      saveReview();
+    }
+    saveLifetime(lt);
+  }
+
+  testIdx++;
+  showTestCard();
+}
+
+function showTestDone() {
+  document.getElementById('testSession').style.display = 'none';
+  document.getElementById('testDone').style.display    = 'flex';
+  const total = testCorrect + testPassive + testWrong;
+  const pct   = total > 0 ? Math.round((testCorrect / total) * 100) : 0;
+  document.getElementById('donePct').textContent    = pct + '% natural';
+  document.getElementById('doneDetail').textContent =
+    testCorrect + ' natural · ' + testPassive + ' passive · ' + testWrong + ' missed · ' + total + ' total';
+
+  // Render lifetime stats
+  const lt = loadLifetime();
+  const t  = lt.total.correct + lt.total.passive + lt.total.wrong;
+  if (t > 0) {
+    const ltPct = Math.round(lt.total.correct / t * 100);
+    // Top passive words
+    const passiveWords = Object.entries(lt.words)
+      .filter(([, s]) => s.passive > 0)
+      .sort(([, a], [, b]) => b.passive - a.passive)
+      .slice(0, 5);
+    let html = `<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:8px;">Lifetime · ${t} cards · ${ltPct}% natural</div>`;
+    if (passiveWords.length) {
+      html += `<div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;">Most passive — focus on using these actively:</div>`;
+      html += passiveWords.map(([, s]) =>
+        `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border);font-size:.85rem;">
+          <span style="color:var(--goldlit);font-weight:700;min-width:80px">${esc(s.word)}</span>
+          <span style="color:#e67e22;min-width:65px">${s.passive} passive</span>
+          <span style="color:var(--green);min-width:65px">${s.correct} natural</span>
+          <span style="color:var(--red)">${s.wrong} missed</span>
+        </div>`
+      ).join('');
+    }
+    html += `<button onclick="resetLifetime()" style="margin-top:10px;background:none;border:1px solid var(--border);color:var(--muted);font-size:.74rem;padding:4px 10px;border-radius:6px;cursor:pointer;">Reset lifetime stats</button>`;
+    document.getElementById('doneLifetime').innerHTML = html;
+  }
+  updateRangeCounts();
+}
+
+function replayTest() {
+  if (!lastFilterPool) { backToSetup(); return; }
+  const pool = shuffle([...lastFilterPool]);
+  testQueue   = testSize > 0 ? pool.slice(0, testSize) : pool;
+  testIdx     = 0; testCorrect = 0; testPassive = 0; testWrong = 0;
+  document.getElementById('testDone').style.display    = 'none';
+  document.getElementById('testSession').style.display = 'flex';
+  document.getElementById('sessCorrect').textContent   = '0';
+  document.getElementById('sessPassive').textContent   = '0';
+  document.getElementById('sessWrong').textContent     = '0';
+  showTestCard();
+}
+function quitTest()    { document.getElementById('testSession').style.display = 'none'; backToSetup(); }
+function backToSetup() {
+  document.getElementById('testDone').style.display    = 'none';
+  document.getElementById('testSession').style.display = 'none';
+  document.getElementById('testSetup').style.display   = '';
+}
+
+/*══════════════════════════════════════════════
+  DETAIL MODAL
+══════════════════════════════════════════════*/
+/*── Rich field renderers ────────────────────────────────*/
+
+/* Generic field wrapper */
+function field(label, innerHtml) {
+  return `<div class="modal-field"><label>${esc(label)}</label>${innerHtml}</div>`;
+}
+
+/* Plain text field (default fallback) */
+function fieldText(label, val) {
+  const rows = val.split('／').map(s => esc(s.trim())).join('<br>');
+  return field(label, `<div class="val">${rows}</div>`);
+}
+
+/* Render furigana notation 漢字（よみ）→ <ruby> */
+function renderFuriganaStr(str) {
+  return str.replace(/([^（）\s、。！？「」【】｜／/]{1,12})（([ぁ-んァ-ンー]+)）/g,
+    '<ruby>$1<rt>$2</rt></ruby>');
+}
+
+/* 例文 field — handles all three data formats:
+   1) plain only  (no separator)
+   2) ja｜en      (pipe-separated, older enriched entries)
+   3) ja / en     (2-part slash, current standard)
+   4) ja / furi / en  (3-part slash, legacy format)  */
+function fieldRei(rei) {
+  if (!rei) return '';
+
+  let jaText = '', english = '';
+
+  if (rei.includes('｜')) {
+    // Format 2: pipe-separated  ja｜en
+    const parts = rei.split('｜').map(s => s.trim());
+    jaText  = parts[0] || '';
+    english = parts[1] || '';
+  } else {
+    const sep = rei.includes('／') ? '／' : '/';
+    const parts = rei.split(sep).map(s => s.trim());
+    if (parts.length >= 3) {
+      // Format 4: three-part  plain / furigana / English
+      jaText  = parts[1];   // use furigana version for ruby rendering
+      english = parts[2];
+    } else if (parts.length === 2) {
+      // Format 3: two-part  ja / English  (current standard)
+      jaText  = parts[0];
+      english = parts[1];
+    } else {
+      // Format 1: Japanese only (or old → format)
+      const arrowIdx = rei.indexOf('→');
+      if (arrowIdx > -1) {
+        jaText  = rei.slice(0, arrowIdx).trim();
+        english = rei.slice(arrowIdx + 1).trim();
+      } else {
+        jaText  = rei;
+      }
+    }
+  }
+
+  // Clean up any residual "→ English" fragment that old-style entries
+  // embed directly in the Japanese part (e.g. ja。→ en ／ ja2。→ en2)
+  if (jaText.includes('→')) {
+    jaText = jaText.slice(0, jaText.indexOf('→')).trim();
+  }
+
+  const rubyHtml = renderFuriganaStr(esc(jaText));
+  const inner = `<div class="rei-block">
+    <div class="rei-ja-ruby">${rubyHtml}</div>
+    ${english ? `<div class="rei-en">${esc(english)}</div>` : ''}
+  </div>`;
+  return field('例文 Example Sentence', inner);
+}
+
+/* Mnemonic field — supports both ①②③ format and legacy Reading hook / Sensory anchor */
+function fieldMnemonic(mnemonic) {
+  if (!mnemonic) return '';
+
+  // Detect ①②③ format
+  const NUMS = '①②③④⑤';
+  const circledRe = new RegExp('[' + NUMS + ']\\[');
+  if (circledRe.test(mnemonic)) {
+    // Split on ① ② ③ keeping the delimiter
+    const parts = mnemonic.split(/(?=[①②③④⑤])/).filter(s => s.trim());
+    const ICONS = { '①': '🔊', '②': '🖊', '③': '📖', '④': '④', '⑤': '⑤' };
+    const NAMES = { '①': 'Sound', '②': 'Kanji', '③': 'Story', '④': '④', '⑤': '⑤' };
+    let inner = '<div class="mnemonic-body"><div class="mnemonic-subsections">';
+    parts.forEach(part => {
+      const num = part[0];
+      const body = part.slice(1).replace(/^\[\w+\]\s*/, '').trim();
+      inner += `<div class="mnemonic-sub">
+        <div class="mnemonic-sub-label">${ICONS[num] || num} ${NAMES[num] || num}</div>
+        <div class="mnemonic-sub-text">${esc(body)}</div>
+      </div>`;
+    });
+    inner += '</div></div>';
+    return field('Mnemonic', inner);
+  }
+
+  // Legacy: Reading hook / Sensory anchor sub-sections
+  const SUB_LABELS = {
+    'Reading hook': '🔊 Reading hook',
+    'Sensory anchor': '👁 Sensory anchor',
+  };
+  const re = /(Reading hook:|Sensory anchor:)/;
+  const chunks = mnemonic.split(re);
+  let mainText = '';
+  const subs = [];
+  let i = 0;
+  if (!re.test(chunks[0])) { mainText = chunks[0].trim(); i = 1; } else { i = 0; }
+  while (i < chunks.length) {
+    const markerRaw = chunks[i]; i++;
+    const body = (chunks[i] || '').trim(); i++;
+    const key = markerRaw.replace(':', '').trim();
+    subs.push({ label: SUB_LABELS[key] || key, text: body });
+  }
+
+  let inner = `<div class="mnemonic-body">`;
+  if (mainText) inner += `<div class="mnemonic-main">${esc(mainText)}</div>`;
+  if (subs.length) {
+    inner += `<div class="mnemonic-subsections">`;
+    subs.forEach(s => {
+      inner += `<div class="mnemonic-sub">
+        <div class="mnemonic-sub-label">${s.label}</div>
+        <div class="mnemonic-sub-text">${esc(s.text)}</div>
+      </div>`;
+    });
+    inner += `</div>`;
+  }
+  inner += `</div>`;
+  return field('Mnemonic', inner);
+}
+
+/* Collocations field — chips + numbered patterns */
+function fieldColloc(colloc) {
+  if (!colloc) return '';
+  const hasPipe = colloc.includes('｜');
+
+  if (!hasPipe) {
+    // Simple dot-separated list → chips only
+    const chips = colloc.split(/[・,、]/).map(s => s.trim()).filter(Boolean);
+    const chipsHtml = chips.map(c => `<span class="colloc-chip">${esc(c)}</span>`).join('');
+    return field('Collocations', `<div class="colloc-chips">${chipsHtml}</div>`);
+  }
+
+  const pipeIdx = colloc.indexOf('｜');
+  const chipPart = colloc.slice(0, pipeIdx);
+  const patternPart = colloc.slice(pipeIdx + 1);
+
+  const chips = chipPart.split(/[・,、]/).map(s => s.trim()).filter(Boolean);
+  const chipsHtml = chips.map(c => `<span class="colloc-chip">${esc(c)}</span>`).join('');
+
+  // Parse numbered patterns: ①label [desc]: ja / en  ②...
+  const NUMS = '①②③④⑤⑥⑦⑧⑨⑩';
+  const numRe = new RegExp(`(?=[${NUMS}])`);
+  const rawPatterns = patternPart.split(numRe).filter(s => s.trim());
+
+  const patternHtml = rawPatterns.map(raw => {
+    const num = raw[0];          // ①
+    const rest = raw.slice(1).trim();
+    // Split "label [desc]: japanese / english"
+    const colonIdx = rest.indexOf(': ');
+    let labelFull = rest, ja = '', en = '';
+    if (colonIdx > -1) {
+      labelFull = rest.slice(0, colonIdx).trim();
+      const exampleStr = rest.slice(colonIdx + 2).trim();
+      // Find " / " that separates ja from en (avoid splitting on ／ inside ja)
+      const slashIdx = exampleStr.lastIndexOf(' / ');
+      if (slashIdx > -1) {
+        ja = exampleStr.slice(0, slashIdx).trim();
+        en = exampleStr.slice(slashIdx + 3).trim();
+      } else {
+        ja = exampleStr;
+      }
+    }
+    // Separate label from [description]
+    const bracketMatch = labelFull.match(/^(.*?)\s*\[(.+)\](.*)$/);
+    let labelCore = labelFull, labelDesc = '';
+    if (bracketMatch) {
+      labelCore = (bracketMatch[1] + bracketMatch[3]).trim();
+      labelDesc = bracketMatch[2].trim();
+    }
+
+    return `<div class="colloc-pattern">
+      <div class="cp-header">
+        <span class="cp-num">${esc(num)}</span>
+        <span class="cp-label">${esc(labelCore)}${labelDesc ? ` <span class="cp-label-desc">— ${esc(labelDesc)}</span>` : ''}</span>
+      </div>
+      ${ja ? `<div class="cp-ja">${esc(ja)}</div>` : ''}
+      ${en ? `<div class="cp-en">${esc(en)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const inner = `<div class="colloc-chips">${chipsHtml}</div>` +
+    (patternHtml ? `<div class="colloc-patterns">${patternHtml}</div>` : '');
+  return field('Collocations', inner);
+}
+
+/*── openModal ───────────────────────────────────────────*/
+function openModal(idx) {
+  const w = ALL[idx];
+  if (!w) return;
+  currentModalIdx = idx;
+  refreshModalStarBtn(w);
+  refreshModalReviewBtn(w);
+
+  document.getElementById('mWord').textContent    = w.word;
+  document.getElementById('mReading').textContent = (w.reading && w.reading !== w.word) ? w.reading : '';
+  document.getElementById('mMeaning').textContent = w.meaning;
+
+  const badges = [];
+  if (w.wk !== null && w.wk !== undefined) {
+    badges.push(`<span class="badge badge-wk">WK Level ${w.wk}</span>`);
+  } else if (w.cat) {
+    badges.push(`<span class="badge badge-cat">${esc(w.cat)}</span>`);
+  }
+  if (w.num) badges.push(`<span style="font-size:.75rem;color:var(--muted)">#${w.num}</span>`);
+  if (w.type)    badges.push(`<span class="badge" style="background:rgba(167,139,250,.15);color:var(--purple);border:1px solid rgba(167,139,250,.3)">${esc(w.type)}</span>`);
+  if (w.register) badges.push(`<span class="badge" style="background:rgba(255,255,255,.07);color:var(--muted);border:1px solid var(--border)">${esc(w.register)}</span>`);
+  if (w.rei) badges.push(`<span class="badge badge-ex">例文 included</span>`);
+  document.getElementById('mBadges').innerHTML = badges.join('');
+
+  // Build modal grid
+  const grid = document.getElementById('mGrid');
+  let html = '';
+
+  html += fieldMnemonic(w.mnemonic);
+  html += fieldColloc(w.colloc);
+  html += fieldRei(w.rei);
+
+  // Enrichment fields — full width for longer prose, two-col for short
+  const longFields = [
+    ['Nuance',           w.nuance],
+    ['Cultural Notes',   w.cult],
+  ].filter(([, v]) => v && v !== '—');
+
+  const shortFields = [
+    ['Fixed Expressions', w.fixed],
+    ['Compounds',        w.gou],
+    ['Related Words',    w.kanren],
+    ['Antonyms',         w.tai],
+  ].filter(([, v]) => v && v !== '—');
+
+  longFields.forEach(([label, val]) => {
+    html += fieldText(label, val);
+  });
+
+  if (shortFields.length) {
+    html += '<div class="modal-two-col">' +
+      shortFields.map(([label, val]) => fieldText(label, val)).join('') +
+      '</div>';
+  }
+
+  grid.innerHTML = html || '<div style="color:var(--muted);font-size:.85rem;padding:8px 0">No additional data for this entry.</div>';
+  refreshModalNav();
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('detailModal')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('detailModal').classList.remove('open');
+}
+
+/*── Prev / Next navigation through the current Search or Browse list ───*/
+function refreshModalNav() {
+  const row = document.getElementById('modalNavRow');
+  const pos = currentListContext.indexOf(currentModalIdx);
+
+  if (pos === -1 || currentListContext.length < 2) {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = 'flex';
+  document.getElementById('modalNavPos').textContent = (pos + 1) + ' / ' + currentListContext.length;
+  document.getElementById('modalPrevBtn').disabled = pos <= 0;
+  document.getElementById('modalNextBtn').disabled = pos >= currentListContext.length - 1;
+}
+
+function modalPrev() {
+  const pos = currentListContext.indexOf(currentModalIdx);
+  if (pos > 0) openModal(currentListContext[pos - 1]);
+}
+
+function modalNext() {
+  const pos = currentListContext.indexOf(currentModalIdx);
+  if (pos !== -1 && pos < currentListContext.length - 1) openModal(currentListContext[pos + 1]);
+}
+
+/*══════════════════════════════════════════════
+  KEYBOARD
+══════════════════════════════════════════════*/
+document.addEventListener('keydown', e => {
+  if (document.getElementById('detailModal').classList.contains('open')) {
+    if (e.key === 'Escape')          closeModalDirect();
+    else if (e.key === 'ArrowLeft')  modalPrev();
+    else if (e.key === 'ArrowRight') modalNext();
+    return;
+  }
+  const active = document.getElementById('testSession').style.display === 'flex';
+  if (!active) return;
+  if (e.code === 'Space')                      { e.preventDefault(); flipTestCard(); }
+  else if (e.code === 'ArrowRight' && testFlipped) testAnswer(true);
+  else if (e.code === 'ArrowLeft'  && testFlipped) testAnswer(false);
+  else if (e.key === 'Escape')                 closeModalDirect();
+});
+
+/*══════════════════════════════════════════════
+  STARRED WORDS  (persisted in localStorage)
+══════════════════════════════════════════════*/
+let starredNums     = new Set();
+let currentModalIdx = null;
+
+// Index (into ALL) of every word currently shown in Search or Browse, in display
+// order — lets the modal's Prev/Next buttons step through whatever list was open.
+let currentListContext = [];
+
+function loadStarred() {
+  try {
+    const saved = localStorage.getItem('monkey-vocab-starred');
+    if (saved) starredNums = new Set(JSON.parse(saved));
+  } catch(e) {}
+}
+
+function saveStarred() {
+  try {
+    localStorage.setItem('monkey-vocab-starred', JSON.stringify([...starredNums]));
+  } catch(e) {}
+}
+
+function toggleStar(num) {
+  if (starredNums.has(num)) starredNums.delete(num);
+  else starredNums.add(num);
+  saveStarred();
+  updateRangeCounts();
+}
+
+function toggleModalStar() {
+  if (currentModalIdx === null) return;
+  const w = ALL[currentModalIdx];
+  if (!w || !w.num) return;
+  toggleStar(w.num);
+  refreshModalStarBtn(w);
+}
+
+function refreshModalStarBtn(w) {
+  const btn   = document.getElementById('modalStarBtn');
+  const icon  = document.getElementById('modalStarIcon');
+  const label = document.getElementById('modalStarLabel');
+  if (!btn) return;
+  const isStarred = starredNums.has(w.num);
+  btn.className = 'modal-action-btn' + (isStarred ? ' active-star' : '');
+  icon.textContent  = isStarred ? '★' : '☆';
+  label.textContent = isStarred ? 'Starred' : 'Add to starred';
+  btn.title = isStarred ? 'Remove from starred' : 'Add to starred';
+}
+
+function resetStarred() {
+  if (!starredNums.size) return;
+  const n = starredNums.size;
+  if (!confirm(`Remove all ${n} starred word${n === 1 ? '' : 's'}? This cannot be undone.`)) return;
+  starredNums.clear();
+  saveStarred();
+  updateRangeCounts();
+  refreshVisibleStarReview();
+}
+
+// Re-render whatever's currently on screen so star/review indicators stay in sync
+// after a bulk reset (search results, browse table, and the open detail modal).
+function refreshVisibleStarReview() {
+  if (dataReady) {
+    const q = document.getElementById('searchInput').value;
+    if (q) doSearch(q);
+    if (document.getElementById('browseResults').querySelector('table')) {
+      renderBrowseResults();
+    }
+  }
+  if (currentModalIdx !== null) {
+    const w = ALL[currentModalIdx];
+    if (w) { refreshModalStarBtn(w); refreshModalReviewBtn(w); }
+  }
+}
+
+// Load immediately so state is available before data arrives
+loadStarred();
+
+/*══════════════════════════════════════════════
+  NEEDS REVIEW FLAG  (persisted in localStorage)
+══════════════════════════════════════════════*/
+let reviewNums = new Set();
+
+function loadReview() {
+  try {
+    const saved = localStorage.getItem('monkey-vocab-review');
+    if (saved) reviewNums = new Set(JSON.parse(saved));
+  } catch(e) {}
+}
+function saveReview() {
+  try { localStorage.setItem('monkey-vocab-review', JSON.stringify([...reviewNums])); } catch(e) {}
+}
+function toggleReview(num) {
+  if (reviewNums.has(num)) reviewNums.delete(num);
+  else reviewNums.add(num);
+  saveReview();
+  updateRangeCounts();
+}
+function toggleModalReview() {
+  if (currentModalIdx === null) return;
+  const w = ALL[currentModalIdx];
+  if (!w || !w.num) return;
+  toggleReview(w.num);
+  refreshModalReviewBtn(w);
+}
+function refreshModalReviewBtn(w) {
+  const btn   = document.getElementById('modalReviewBtn');
+  const label = document.getElementById('modalReviewLabel');
+  if (!btn) return;
+  const flagged = reviewNums.has(w.num);
+  btn.className = 'modal-action-btn' + (flagged ? ' active-review' : '');
+  label.textContent = flagged ? 'Flagged for review' : 'Flag for review';
+  btn.title = flagged ? 'Remove review flag' : 'Flag for review';
+}
+
+function resetReview() {
+  if (!reviewNums.size) return;
+  const n = reviewNums.size;
+  if (!confirm(`Clear the review flag from all ${n} word${n === 1 ? '' : 's'}? This cannot be undone.`)) return;
+  reviewNums.clear();
+  saveReview();
+  updateRangeCounts();
+  refreshVisibleStarReview();
+}
+
+loadReview();
+
+/*══════════════════════════════════════════════
+  LIFETIME STATS  (persisted in localStorage)
+══════════════════════════════════════════════*/
+const VOCAB_STORE_KEY = 'monkey-vocab-lifetime';
+
+function loadLifetime() {
+  try { return JSON.parse(localStorage.getItem(VOCAB_STORE_KEY)) || { total: { correct:0, passive:0, wrong:0 }, words: {} }; }
+  catch(e) { return { total: { correct:0, passive:0, wrong:0 }, words: {} }; }
+}
+function saveLifetime(lt) {
+  try { localStorage.setItem(VOCAB_STORE_KEY, JSON.stringify(lt)); } catch(e) {}
+}
+function resetLifetime() {
+  if (!confirm('Reset all lifetime stats? This cannot be undone.')) return;
+  localStorage.removeItem(VOCAB_STORE_KEY);
+  document.getElementById('doneLifetime').innerHTML = '';
+}
+
+/*══════════════════════════════════════════════
+  HUB INTEGRATION (postMessage) — additive only.
+  Lets vocab_kanji_hub.html embed this app in an iframe and get
+  blended search results / jump-to-detail without changing anything
+  about how this file works when opened on its own.
+══════════════════════════════════════════════*/
+(function () {
+  function hubSearch(q) {
+    q = (q || '').trim().toLowerCase();
+    if (!q) return [];
+    const exact = [], close = [], related = [];
+    for (const w of ALL) {
+      if (!w._idx.includes(q)) continue;
+      const m = classifyMatch(w, q);
+      if (!m) continue;
+      // exact/close hits are the word itself matching (by word, reading or
+      // meaning) — first-level results, shown plainly. A "related" hit only
+      // matched through some other field (collocations, an example
+      // sentence, etc.), so it's tagged with that field name as a visible
+      // "why is this here" label rather than looking identical to a direct hit.
+      const item = {
+        idx: w._i,
+        word: w.word,
+        reading: (w.reading && w.reading !== w.word) ? w.reading : '',
+        meaning: w.meaning,
+        via: m.tier === 'related' ? m.field : null
+      };
+      if (m.tier === 'exact') exact.push(item);
+      else if (m.tier === 'close') close.push(item);
+      else related.push(item);
+    }
+    return [...exact, ...close, ...related].slice(0, 8);
+  }
+
+  // Finds the first occurrence of `query` inside the given elements (in
+  // order), wraps it in a highlighted <mark>, and scrolls it into view.
+  // Used after opening a detail card from the Hub so a secondary/related
+  // result (matched via a collocation, example sentence, etc. rather than
+  // the word itself) isn't buried and hard to spot in the detail view.
+  function highlightQueryInModal(elIds, query) {
+    query = (query || '').trim();
+    if (!query) return;
+    const qLower = query.toLowerCase();
+    for (let i = 0; i < elIds.length; i++) {
+      const root = document.getElementById(elIds[i]);
+      if (!root) continue;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = node.nodeValue;
+        const idx = text.toLowerCase().indexOf(qLower);
+        if (idx === -1) continue;
+        const before = text.slice(0, idx);
+        const match = text.slice(idx, idx + query.length);
+        const after = text.slice(idx + query.length);
+        const mark = document.createElement('mark');
+        mark.style.cssText = 'background:var(--gold);color:#1a1408;padding:0 2px;border-radius:3px;box-shadow:0 0 0 3px rgba(201,169,110,.3);';
+        mark.textContent = match;
+        const parent = node.parentNode;
+        parent.insertBefore(document.createTextNode(before), node);
+        parent.insertBefore(mark, node);
+        parent.insertBefore(document.createTextNode(after), node);
+        parent.removeChild(node);
+        setTimeout(function () { mark.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
+        return;
+      }
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    const d = e.data;
+    if (!d || d.source !== 'jhub') return;
+    if (d.type === 'search') {
+      const results = dataReady ? hubSearch(d.query) : [];
+      if (e.source) e.source.postMessage(
+        { source: 'jhub-app', app: 'vocab', type: 'results', reqId: d.reqId, results: results },
+        '*'
+      );
+    } else if (d.type === 'open') {
+      switchTab('search');
+      openModal(d.idx);
+      highlightQueryInModal(['mWord', 'mReading', 'mMeaning', 'mBadges', 'mGrid'], d.query);
+    }
+  });
+})();
+
+/*══════════════════════════════════════════════
+  BOOT
+══════════════════════════════════════════════*/
+tryVocabCache();
+loadData();
+</script>
+</body>
+</html>

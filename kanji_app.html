@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漢字 App — Alan's Study Tool</title>
+<style>
+/*──────────────────────────────────────────────
+  BASE
+──────────────────────────────────────────────*/
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0d0d1a;
+  --bg2:      #141428;
+  --bg3:      #1c1c38;
+  --border:   rgba(255,255,255,0.08);
+  --gold:     #c9a96e;
+  --goldlit:  #e8c987;
+  --green:    #4caf79;
+  --red:      #e05252;
+  --blue:     #5b8cff;
+  --purple:   #a77bff;
+  --teal:     #3fcfb8;
+  --text:     #e8e8e8;
+  --muted:    rgba(255,255,255,0.60);
+  --muted2:   rgba(255,255,255,0.38);
+  --radius:   14px;
+}
+html, body { height: 100%; }
+body {
+  font-family: 'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+button { cursor: pointer; border: none; font-family: inherit; }
+input  { font-family: inherit; }
+
+/*──────────────────────────────────────────────
+  HEADER + TABS
+──────────────────────────────────────────────*/
+.app-header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: stretch;
+  position: sticky; top: 0; z-index: 100;
+}
+.app-logo {
+  font-size: 1.1rem; color: var(--gold); letter-spacing: .08em;
+  padding: 14px 24px 14px 0;
+  border-right: 1px solid var(--border);
+  margin-right: 16px; white-space: nowrap;
+  display: flex; align-items: center; gap: 8px;
+}
+.app-logo span { font-size: .72rem; color: var(--muted); font-weight: 400; }
+.tab-nav { display: flex; gap: 4px; align-items: center; flex: 1; }
+.tab-btn {
+  padding: 12px 20px; background: none; color: var(--muted);
+  font-size: .88rem; letter-spacing: .04em;
+  border-bottom: 3px solid transparent; transition: all .18s; white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.header-count { margin-left: auto; font-size: .72rem; color: var(--muted2); align-self: center; padding-left: 16px; }
+
+/*──────────────────────────────────────────────
+  PANELS
+──────────────────────────────────────────────*/
+.panel { display: none; flex: 1; flex-direction: column; }
+.panel.active { display: flex; }
+
+/*──────────────────────────────────────────────
+  LOADING
+──────────────────────────────────────────────*/
+#loadingPanel {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px; color: var(--muted);
+}
+.loader {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border); border-top-color: var(--gold);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/*──────────────────────────────────────────────
+  PANEL 1 — SEARCH
+──────────────────────────────────────────────*/
+.search-bar-wrap {
+  padding: 20px 24px 12px; background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.search-input-row { display: flex; gap: 10px; }
+.search-input {
+  flex: 1; padding: 11px 16px; background: var(--bg3);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 1rem; outline: none; transition: border-color .2s;
+}
+.search-input:focus { border-color: var(--gold); }
+.search-input::placeholder { color: var(--muted2); }
+.search-hint { font-size: .72rem; color: var(--muted2); margin-top: 8px; }
+.results-area { flex: 1; overflow-y: auto; padding: 12px 24px 24px; }
+.result-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px; margin-top: 4px;
+}
+.result-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px;
+  cursor: pointer; transition: border-color .18s, background .18s;
+}
+.result-card:hover { border-color: var(--gold); background: var(--bg3); }
+.result-kanji { font-size: 2.2rem; font-weight: 700; min-width: 48px; text-align: center; line-height: 1; }
+.result-info { flex: 1; min-width: 0; }
+.result-meaning { font-size: .9rem; font-weight: 600; }
+.result-meta { font-size: .72rem; color: var(--muted); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
+.badge { padding: 2px 7px; border-radius: 6px; font-size: .68rem; font-weight: 600; letter-spacing: .03em; }
+.badge-wk  { background: rgba(91,140,255,.18); color: var(--blue); }
+.badge-h   { background: rgba(201,169,110,.15); color: var(--gold); }
+.results-empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: .9rem; }
+.results-count { font-size: .75rem; color: var(--muted); margin-bottom: 10px; }
+.result-grid-wrap { display: block; margin-top: 4px; }
+.result-grid-wrap .result-grid { margin-top: 0; }
+.result-section-title {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); padding: 14px 2px 6px; display: flex; align-items: center; gap: 8px;
+}
+.result-section-title:first-child { padding-top: 0; }
+.result-section-count { background: var(--bg3); color: var(--muted); border-radius: 999px; padding: 1px 8px; font-size: .65rem; }
+
+/* ── Star button ── */
+.result-card { position: relative; }
+.star-btn {
+  position: absolute; top: 8px; right: 10px;
+  background: none; font-size: 1.1rem; line-height: 1;
+  color: var(--muted2); padding: 4px; border-radius: 6px;
+  transition: color .15s, transform .15s;
+  z-index: 2;
+}
+.star-btn:hover { color: var(--gold); transform: scale(1.2); }
+.star-btn.starred { color: var(--gold); }
+/* Starred dot on browse chips */
+.kanji-chip { position: relative; }
+.chip-star {
+  position: absolute; top: 3px; right: 4px;
+  font-size: .55rem; color: var(--gold); line-height: 1;
+  pointer-events: none;
+}
+/* Star button in modal */
+.modal-star-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0 auto 4px; padding: 6px 16px;
+  border-radius: 20px; font-size: .82rem; font-weight: 600;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--muted); transition: all .18s;
+}
+.modal-star-btn:hover { border-color: var(--gold); color: var(--gold); }
+.modal-star-btn.starred { background: rgba(201,169,110,.12); border-color: var(--gold); color: var(--gold); }
+.modal-star-btn .star-icon { font-size: 1rem; }
+/* Starred filter option uses gold accent */
+.filter-opt[data-filter="starred"]:hover  { border-color: var(--gold); color: var(--gold); }
+.filter-opt[data-filter="starred"].selected { background: rgba(201,169,110,.15); border-color: var(--gold); color: var(--gold); font-weight: 600; }
+
+/*──────────────────────────────────────────────
+  PANEL 2 — BROWSE
+──────────────────────────────────────────────*/
+.browse-controls { padding: 14px 24px 10px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.browse-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.browse-tab {
+  padding: 6px 14px; border-radius: 20px; font-size: .78rem;
+  background: var(--bg3); color: var(--muted); border: 1px solid var(--border); transition: all .15s;
+}
+.browse-tab:hover { color: var(--text); border-color: var(--gold); }
+.browse-tab.active { background: var(--gold); color: #0d0d1a; border-color: var(--gold); font-weight: 700; }
+.level-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.lvl-pill {
+  padding: 5px 11px; border-radius: 20px; font-size: .78rem;
+  background: var(--bg3); color: var(--muted); border: 1px solid var(--border); transition: all .15s;
+}
+.lvl-pill:hover { color: var(--text); border-color: var(--gold); }
+.lvl-pill.active { background: var(--gold); color: #0d0d1a; border-color: var(--gold); font-weight: 700; }
+.browse-grid-wrap { flex: 1; overflow-y: auto; padding: 16px 24px 24px; }
+.browse-level-header { font-size: .78rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
+.kanji-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.kanji-chip {
+  width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; font-weight: 700; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; transition: all .15s;
+}
+.kanji-chip:hover { border-color: var(--gold); background: var(--bg3); transform: scale(1.08); }
+
+/*──────────────────────────────────────────────
+  PANEL 3 — TEST SETUP
+──────────────────────────────────────────────*/
+.test-setup { max-width: 640px; margin: 0 auto; padding: 32px 24px; width: 100%; }
+.setup-title { font-size: 1.3rem; font-weight: 700; color: var(--gold); margin-bottom: 28px; }
+.setup-section { margin-bottom: 24px; }
+.setup-label { font-size: .75rem; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 10px; }
+.mode-group-label { font-size: .7rem; color: var(--muted2); letter-spacing: .08em; text-transform: uppercase; margin: 10px 0 8px; }
+.mode-options { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.mode-opt {
+  padding: 10px 18px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--muted); font-size: .88rem; transition: all .18s;
+}
+.mode-opt:hover { color: var(--text); border-color: var(--gold); }
+.mode-opt.selected { background: rgba(201,169,110,.15); border-color: var(--gold); color: var(--gold); font-weight: 600; }
+.mode-opt.compound-mode:hover { border-color: var(--purple); }
+.mode-opt.compound-mode.selected { background: rgba(167,123,255,.15); border-color: var(--purple); color: var(--purple); }
+
+.filter-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter-opt {
+  padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--bg2); color: var(--muted); font-size: .82rem; transition: all .15s;
+}
+.filter-opt:hover { color: var(--text); border-color: var(--blue); }
+.filter-opt.selected { background: rgba(91,140,255,.15); border-color: var(--blue); color: var(--blue); font-weight: 600; }
+.range-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.range-input {
+  width: 80px; padding: 8px 10px; background: var(--bg3);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: .88rem; text-align: center; outline: none;
+}
+.range-input:focus { border-color: var(--blue); }
+.range-label { font-size: .82rem; color: var(--muted); }
+.session-size-row { display: flex; align-items: center; gap: 12px; }
+.size-btn {
+  padding: 7px 16px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--bg2); color: var(--muted); font-size: .85rem; transition: all .15s;
+}
+.size-btn:hover { color: var(--text); border-color: var(--gold); }
+.size-btn.selected { background: rgba(201,169,110,.15); border-color: var(--gold); color: var(--gold); font-weight: 600; }
+.start-btn {
+  width: 100%; padding: 15px; border-radius: var(--radius);
+  background: var(--gold); color: #0d0d1a; font-size: 1rem;
+  font-weight: 700; letter-spacing: .05em; margin-top: 8px; transition: filter .2s;
+}
+.start-btn:hover { filter: brightness(1.1); }
+.setup-error { font-size: .8rem; color: var(--red); margin-top: 8px; }
+.compound-pool-note { font-size: .78rem; color: var(--purple); margin-top: 8px; display: none; }
+.mode-opt.mc-mode:hover { border-color: var(--teal); }
+.mode-opt.mc-mode.selected { background: rgba(63,207,184,.15); border-color: var(--teal); color: var(--teal); font-weight: 600; }
+
+/*──────────────────────────────────────────────
+  TEST SESSION
+──────────────────────────────────────────────*/
+#testSession {
+  display: none; flex-direction: column; align-items: center;
+  flex: 1; padding: 0 0 24px; width: 100%;
+}
+.session-header {
+  width: 100%; padding: 12px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.session-mode-label { font-size: .75rem; color: var(--muted); letter-spacing: .05em; }
+.quit-btn {
+  padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: none; color: var(--muted); font-size: .8rem; transition: all .15s;
+}
+.quit-btn:hover { color: var(--text); border-color: var(--red); }
+.sess-progress-wrap { width: 100%; max-width: 640px; padding: 16px 24px 0; }
+.sess-bar-track { width: 100%; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.sess-bar-fill {
+  height: 100%; background: linear-gradient(90deg, var(--gold), var(--goldlit));
+  border-radius: 3px; transition: width .4s ease; width: 0%;
+}
+.sess-bar-fill.compound-bar { background: linear-gradient(90deg, var(--purple), #c9a7ff); }
+.sess-progress-info { display: flex; justify-content: space-between; margin-top: 8px; }
+.sess-count { font-size: .78rem; color: var(--muted); }
+.sess-scores { display: flex; gap: 16px; }
+.ss { font-size: .8rem; font-weight: 600; }
+.ss-g { color: var(--green); }
+.ss-r { color: var(--red); }
+
+/* Card */
+.card-area {
+  flex: 1; display: flex; align-items: flex-start; justify-content: center;
+  width: 100%; max-width: 680px; padding: 16px 24px 8px; perspective: 1400px;
+  overflow-y: auto;
+}
+.card-wrap {
+  width: 100%; max-width: 620px; min-height: 260px;
+  position: relative; transform-style: preserve-3d;
+  transition: transform .5s cubic-bezier(.25,.46,.45,.94);
+  cursor: pointer; user-select: none;
+}
+.card-wrap.flipped { transform: rotateY(180deg); }
+.card-face {
+  position: absolute; inset: 0; min-height: 260px;
+  border-radius: 22px; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  padding: 24px 28px; box-shadow: 0 24px 64px rgba(0,0,0,.5);
+  overflow-y: auto;
+}
+.card-face.flipped-face {
+  /* shown side gets auto height */
+  position: relative; inset: auto;
+}
+.card-front { background: linear-gradient(145deg, #16213e, #0f3460); border: 1px solid rgba(201,169,110,.25); justify-content: center; }
+.card-back  { background: linear-gradient(145deg, #0d2b1a, #1a3a2a); border: 1px solid rgba(76,175,121,.25); transform: rotateY(180deg); }
+.card-back.reading-style { background: linear-gradient(145deg, #1a1a3a, #0d1a3a); border: 1px solid rgba(91,140,255,.25); }
+.card-front.compound-style { background: linear-gradient(145deg, #1a1035, #250d40); border: 1px solid rgba(167,123,255,.3); justify-content: flex-start; }
+.card-back.compound-style  { background: linear-gradient(145deg, #0d1a2b, #0d2535); border: 1px solid rgba(63,207,184,.3); }
+
+.card-tag { font-size: .65rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted2); margin-bottom: 16px; text-align: center; }
+.card-kanji { font-size: 5rem; font-weight: 700; color: #fff; line-height: 1; text-shadow: 0 2px 24px rgba(201,169,110,.3); }
+.card-meaning-q { font-size: 1.6rem; font-weight: 600; color: #fff; text-align: center; line-height: 1.3; }
+.card-tap { position: absolute; bottom: 18px; font-size: .68rem; color: var(--muted2); }
+
+.back-kanji { font-size: 4rem; font-weight: 700; color: #fff; margin-bottom: 12px; line-height: 1; }
+.back-meaning { font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 10px; text-align: center; }
+.back-readings { display: flex; gap: 24px; margin-top: 6px; }
+.reading-group { text-align: center; }
+.reading-label { font-size: .65rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.reading-val { font-size: 1.1rem; color: var(--goldlit); font-weight: 600; }
+.reading-val.empty { color: var(--muted2); font-size: .8rem; }
+.back-mnemonic { font-size: .78rem; color: var(--muted); margin-top: 12px; text-align: center; font-style: italic; line-height: 1.5; max-width: 400px; }
+
+/* Buttons */
+.ans-row { width: 100%; max-width: 680px; display: flex; gap: 10px; padding: 0 24px; }
+.ans-btn {
+  flex: 1; padding: 10px 8px; border-radius: 10px;
+  font-size: .82rem; font-weight: 700; transition: all .18s;
+  opacity: 0; pointer-events: none;
+}
+.ans-btn.show { opacity: 1; pointer-events: all; }
+.ans-btn:hover { transform: translateY(-2px); filter: brightness(1.12); }
+.btn-wrong   { background: #c0392b; color: #fff; }
+.btn-correct { background: #27ae60; color: #fff; }
+.key-hint-test { font-size: .68rem; color: var(--muted2); text-align: center; margin-top: 10px; letter-spacing: .05em; }
+
+/* Done */
+#testDone {
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  flex: 1; padding: 48px 32px; text-align: center;
+}
+.done-emoji { font-size: 2.8rem; margin-bottom: 14px; }
+.done-title { font-size: 1.6rem; font-weight: 700; color: var(--gold); margin-bottom: 10px; }
+.done-pct   { font-size: 3.2rem; font-weight: 800; margin-bottom: 6px; }
+.done-detail { font-size: .9rem; color: var(--muted); margin-bottom: 32px; line-height: 2; }
+.done-btns { display: flex; gap: 12px; }
+.done-btn { padding: 12px 28px; border-radius: var(--radius); font-size: .9rem; font-weight: 700; transition: filter .2s; }
+.done-btn-again { background: var(--gold); color: #0d0d1a; }
+.done-btn-setup { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+.done-btn:hover { filter: brightness(1.1); }
+
+/*──────────────────────────────────────────────
+  COMPOUND TEST — CARD STYLES
+──────────────────────────────────────────────*/
+/* Type 1: Compound → 漢字 */
+.compound-clues { display: flex; flex-direction: column; gap: 9px; width: 100%; }
+.compound-clue-item {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 9px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(167,123,255,.18); border-radius: 10px;
+  flex-wrap: wrap;
+}
+.compound-clue-word { font-size: 1.65rem; font-weight: 700; letter-spacing: 2px; line-height: 1; flex-shrink: 0; }
+.blank-kanji { color: var(--purple); }
+.compound-clue-reading { font-size: .82rem; color: var(--muted); }
+.compound-clue-meaning { font-size: .78rem; color: var(--muted2); font-style: italic; margin-left: auto; }
+
+.compound-reveal-kanji {
+  font-size: 5rem; font-weight: 700; color: var(--purple); line-height: 1;
+  text-shadow: 0 0 30px rgba(167,123,255,.4); margin-bottom: 10px;
+}
+.compound-reveal-meaning { font-size: .95rem; color: var(--text); margin-bottom: 12px; text-align: center; }
+.compound-answer-list { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+.compound-answer-item { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.compound-answer-word { font-size: 1rem; color: var(--teal); font-weight: 700; }
+.compound-answer-reading { font-size: .8rem; color: var(--muted); }
+.compound-answer-meaning { font-size: .78rem; color: var(--muted2); font-style: italic; }
+
+/* Type 2: Fill the Compound — multi-row layout */
+.fill-compound-rows { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.fill-compound-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(167,123,255,.18); border-radius: 10px;
+}
+.fill-row-hint {
+  font-size: .88rem; font-weight: 600; color: var(--teal);
+  min-width: 80px; flex-shrink: 0; line-height: 1.3;
+}
+.fill-row-word {
+  font-size: 2rem; font-weight: 700; letter-spacing: 3px; line-height: 1;
+}
+.target-kanji-in-fill { color: #fff; }
+.blank-kanji-fill { color: var(--purple); }
+.fill-sub-hint { font-size: .75rem; color: var(--muted2); margin-top: 10px; text-align: center; }
+
+/* Type 2 back — multiple compounds */
+.fill-back-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.fill-back-item {
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04); border-radius: 10px;
+  border-left: 3px solid var(--teal);
+}
+.fill-back-word    { font-size: 1.6rem; font-weight: 700; letter-spacing: 3px; color: #fff; line-height: 1; margin-bottom: 4px; }
+.fill-back-reading { font-size: .9rem; color: var(--teal); font-weight: 600; margin-bottom: 2px; }
+.fill-back-meaning { font-size: .85rem; color: var(--muted); }
+
+/*──────────────────────────────────────────────
+  MULTIPLE-CHOICE TEST CARDS
+  (Register/Nuance · Collocation Cloze · Classify
+   the Register · JLPT-style Choice)
+──────────────────────────────────────────────*/
+.mc-prompt { width: 100%; margin-bottom: 18px; }
+.mc-options { display: flex; flex-direction: column; gap: 9px; width: 100%; }
+.mc-opt {
+  width: 100%; text-align: left; padding: 12px 16px; border-radius: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  color: var(--text); transition: all .15s; font-size: .92rem;
+}
+.mc-opt:hover:not(.disabled) { border-color: var(--teal); background: rgba(63,207,184,.08); }
+.mc-opt.disabled { cursor: default; }
+.mc-opt.correct { background: rgba(76,175,121,.18); border-color: var(--green); }
+.mc-opt.wrong   { background: rgba(224,82,82,.18);  border-color: var(--red); }
+.mc-reveal {
+  width: 100%; margin-top: 16px; padding: 12px 16px;
+  background: var(--bg3); border-left: 3px solid var(--teal);
+  border-radius: 0 10px 10px 0; text-align: center;
+}
+.mc-next-btn {
+  margin-top: 18px; padding: 11px 26px; border-radius: var(--radius);
+  background: var(--gold); color: #0d0d1a; font-size: .9rem; font-weight: 700;
+  transition: filter .2s;
+}
+.mc-next-btn:hover { filter: brightness(1.1); }
+
+/*──────────────────────────────────────────────
+  MODAL
+──────────────────────────────────────────────*/
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.65); z-index: 200;
+  align-items: center; justify-content: center; padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2); border: 1px solid rgba(201,169,110,.25);
+  border-radius: 22px; padding: 36px; max-width: 560px; width: 100%;
+  position: relative; box-shadow: 0 32px 80px rgba(0,0,0,.6);
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bg3); color: var(--muted); font-size: 1.1rem;
+  display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.modal-close:hover { background: var(--border); color: var(--text); }
+.modal-kanji-big { font-size: 6rem; font-weight: 700; text-align: center; line-height: 1; margin-bottom: 6px; }
+.modal-meaning   { font-size: 1.3rem; font-weight: 600; text-align: center; margin-bottom: 20px; color: var(--goldlit); }
+.modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.modal-field label { font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted2); display: block; margin-bottom: 4px; }
+.modal-field .val { font-size: .92rem; color: var(--text); line-height: 1.5; }
+.modal-field .val.reading { font-size: 1.05rem; color: var(--goldlit); font-weight: 600; }
+.modal-field.full { grid-column: 1 / -1; }
+.modal-mnemonic {
+  background: var(--bg3); border-left: 3px solid var(--gold);
+  border-radius: 0 8px 8px 0; padding: 12px 14px;
+  font-size: .85rem; color: var(--muted); font-style: italic; line-height: 1.6; margin-top: 6px;
+}
+.modal-notes {
+  background: rgba(63,207,184,.08); border-left: 3px solid var(--teal);
+  border-radius: 0 8px 8px 0; padding: 12px 14px;
+  font-size: .85rem; color: var(--muted); line-height: 1.6; margin-top: 6px;
+}
+
+/* Compounds section */
+.modal-compounds-section { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 18px; }
+.modal-compounds-label {
+  font-size: .65rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted2); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.modal-compounds-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.modal-compound-list { display: flex; flex-direction: column; gap: 10px; }
+.modal-compound-card {
+  background: var(--bg3); border-radius: 12px;
+  border: 1px solid rgba(167,123,255,.18);
+  overflow: hidden;
+}
+.modal-compound-header {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 10px 14px 8px; flex-wrap: wrap;
+}
+.modal-compound-word    { font-size: 1.25rem; font-weight: 700; color: var(--teal); }
+.modal-compound-reading { font-size: .85rem; color: var(--purple); }
+.modal-compound-meaning { font-size: .85rem; color: var(--text); margin-left: auto; font-weight: 600; }
+.modal-compound-example {
+  padding: 7px 14px 10px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.modal-compound-ex-jp   { font-size: .88rem; color: var(--muted); margin-bottom: 2px; }
+.modal-compound-ex-read { font-size: .78rem; color: var(--muted2); margin-bottom: 2px; }
+.modal-compound-ex-eng  { font-size: .78rem; color: var(--muted2); font-style: italic; }
+.modal-compound-register {
+  display: inline-block;
+  padding: 2px 8px; border-radius: 4px; font-size: .65rem;
+  background: rgba(167,123,255,.12); color: var(--purple);
+}
+.modal-compound-footer {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 4px 14px 10px;
+}
+.modal-compound-notes {
+  font-size: .72rem; color: var(--muted2); font-style: italic;
+  flex: 1;
+}
+.no-compounds-note { font-size: .8rem; color: var(--muted2); font-style: italic; }
+
+/* ══ MOBILE ══════════════════════════════════════ */
+@media (max-width: 768px) {
+  html, body { height: auto; min-height: 100svh; }
+  .app-header { flex-wrap: wrap; padding: 0; }
+  .app-logo { width: 100%; border-right: none; margin-right: 0; border-bottom: 1px solid var(--border); padding: 10px 16px; font-size: .95rem; }
+  .tab-nav { width: 100%; overflow-x: auto; scrollbar-width: none; flex: none; }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .header-count { display: none; }
+  .panel.active { display: block; }
+  .results-area, .browse-grid-wrap { overflow: visible; flex: none; padding: 12px 14px 24px; }
+  .search-bar-wrap { padding: 14px 14px 10px; }
+  .result-grid { grid-template-columns: 1fr; }
+  .test-setup { padding: 20px 14px; }
+  .fill-row-word { font-size: 1.6rem; letter-spacing: 2px; }
+  .fill-back-word { font-size: 1.4rem; letter-spacing: 2px; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loadingPanel">
+  <div class="loader"></div>
+  <div id="loadMsg">Loading kanji from your Google Sheet…</div>
+</div>
+
+<!-- MAIN APP -->
+<div id="appRoot" style="display:none; flex-direction:column; min-height:100vh; flex:1;">
+
+  <header class="app-header">
+    <div class="app-logo">漢字 <span>Alan's Study App</span></div>
+    <nav class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('search')">🔍 Search</button>
+      <button class="tab-btn"        onclick="switchTab('browse')">📚 Browse</button>
+      <button class="tab-btn"        onclick="switchTab('test')">🃏 Test</button>
+    </nav>
+    <div class="header-count" id="headerCount"></div>
+  </header>
+
+  <!--── SEARCH ──-->
+  <div id="panelSearch" class="panel active" style="flex:1;">
+    <div class="search-bar-wrap">
+      <div class="search-input-row">
+        <input class="search-input" id="searchInput" type="text"
+               placeholder="Type kanji 日, meaning (sun), reading (にち), Heisig # (40), WK level (3), compound (紹介)…"
+               oninput="doSearch(this.value)" autocomplete="off" />
+      </div>
+      <div class="search-hint">Search by kanji · meaning · on/kun reading · Heisig # · WK level · compounds</div>
+    </div>
+    <div class="results-area" id="resultsArea">
+      <div class="results-empty" id="searchPrompt">Start typing to search all kanji…</div>
+      <div class="results-count" id="resultsCount" style="display:none;"></div>
+      <div class="result-grid" id="resultGrid"></div>
+    </div>
+  </div>
+
+  <!--── BROWSE ──-->
+  <div id="panelBrowse" class="panel" style="flex:1;">
+    <div class="browse-controls">
+      <div class="browse-tabs">
+        <button class="browse-tab active" onclick="switchBrowse('wk',this)">WK Level</button>
+        <button class="browse-tab" onclick="switchBrowse('starred',this)">⭐ Starred</button>
+        <button class="browse-tab" onclick="switchBrowse('review',this)">🔴 Needs review</button>
+        <button class="browse-tab" onclick="switchBrowse('on',this)">On'yomi</button>
+        <button class="browse-tab" onclick="switchBrowse('kun',this)">Kun'yomi</button>
+        <button class="browse-tab" onclick="switchBrowse('radical',this)">Radical</button>
+      </div>
+      <div class="level-pills" id="levelPills"></div>
+    </div>
+    <div class="browse-grid-wrap">
+      <div class="browse-level-header" id="browseLevelHeader"></div>
+      <div class="kanji-grid" id="kanjiGrid"></div>
+    </div>
+  </div>
+
+  <!--── TEST ──-->
+  <div id="panelTest" class="panel" style="flex:1; overflow-y:auto;">
+
+    <!-- Setup -->
+    <div class="test-setup" id="testSetup">
+      <div class="setup-title">Test Setup</div>
+
+      <div class="setup-section">
+        <div class="setup-label">Test Mode</div>
+
+        <div class="mode-group-label">— Kanji flashcards —</div>
+        <div class="mode-options">
+          <button class="mode-opt selected" data-mode="kanji-reading" onclick="selectMode(this)">漢字 → Readings</button>
+          <button class="mode-opt"          data-mode="meaning-kanji" onclick="selectMode(this)">Meaning → 漢字</button>
+          <button class="mode-opt"          data-mode="both"          onclick="selectMode(this)">Both mixed</button>
+          <button class="mode-opt"          data-mode="write-kanji"   onclick="selectMode(this)"
+                  title="See the Heisig &amp; WaniKani keywords — write the kanji from memory">
+            ✍ Write the kanji
+          </button>
+        </div>
+
+        <div class="mode-group-label">— Compound tests —</div>
+        <div class="mode-options">
+          <button class="mode-opt compound-mode" data-mode="compound-kanji" onclick="selectMode(this)"
+                  title="See up to 5 compounds with the common kanji blanked — guess which kanji they share">
+            🔤 Compound → 漢字
+          </button>
+          <button class="mode-opt compound-mode" data-mode="compound-fill" onclick="selectMode(this)"
+                  title="See the target kanji + a compound with the other kanji blanked — guess the missing kanji">
+            ✍ Fill the Compound
+          </button>
+          <button class="mode-opt compound-mode" data-mode="compound-meaning" onclick="selectMode(this)"
+                  title="See a compound word — recall its English meaning">
+            📖 Compound → Meaning
+          </button>
+          <button class="mode-opt mc-mode" data-mode="collocation-cloze" onclick="selectMode(this)"
+                  title="See a real example sentence with the target word blanked out — pick which of 4 words fills it">
+            ✏️ Collocation Cloze
+          </button>
+        </div>
+
+        <div class="mode-group-label">— Nuance &amp; register —</div>
+        <div class="mode-options">
+          <button class="mode-opt mc-mode" data-mode="register-discrim" onclick="selectMode(this)"
+                  title="See a blanked example sentence and several of the kanji's own compounds — pick which one actually fits">
+            🎭 Register / Nuance
+          </button>
+          <button class="mode-opt mc-mode" data-mode="register-classify" onclick="selectMode(this)"
+                  title="See a compound — classify its formality/register (Neutral, Formal, Literary, etc.)">
+            🏷️ Classify the Register
+          </button>
+        </div>
+
+        <div class="mode-group-label">— Kanji structure —</div>
+        <div class="mode-options">
+          <button class="mode-opt" data-mode="radical-kanji" onclick="selectMode(this)"
+                  title="See the radical breakdown — write the kanji from memory">
+            🧩 Radical → 漢字
+          </button>
+        </div>
+
+        <div class="mode-group-label">— Exam practice —</div>
+        <div class="mode-options">
+          <button class="mode-opt mc-mode" data-mode="jlpt-mc" onclick="selectMode(this)"
+                  title="JLPT-style 4-option multiple choice — reading or kanji selection in context">
+            📝 JLPT-style Choice
+          </button>
+        </div>
+
+        <div class="compound-pool-note" id="compoundPoolNote"></div>
+      </div>
+
+      <div class="setup-section">
+        <div class="setup-label">Filter cards by</div>
+        <div class="filter-options">
+          <button class="filter-opt selected" data-filter="all"     onclick="selectFilter(this)">All kanji</button>
+          <button class="filter-opt"          data-filter="starred" onclick="selectFilter(this)">⭐ Starred</button>
+          <button class="filter-opt"          data-filter="review"  onclick="selectFilter(this)">🔴 Needs review</button>
+          <button class="filter-opt"          data-filter="wk"      onclick="selectFilter(this)">WK Level range</button>
+          <button class="filter-opt"          data-filter="heisig"  onclick="selectFilter(this)">Heisig # range</button>
+        </div>
+        <div id="rangeWK" style="display:none;" class="range-row">
+          <span class="range-label">WK Level</span>
+          <input class="range-input" id="wkFrom" type="number" min="1" max="60" value="30" placeholder="From">
+          <span class="range-label">–</span>
+          <input class="range-input" id="wkTo"   type="number" min="1" max="60" value="40" placeholder="To">
+          <span class="range-label" id="wkCount" style="color:var(--gold);"></span>
+        </div>
+        <div id="rangeHeisig" style="display:none;" class="range-row">
+          <span class="range-label">Heisig #</span>
+          <input class="range-input" id="hFrom" type="number" min="1" max="3000" value="1"   placeholder="From">
+          <span class="range-label">–</span>
+          <input class="range-input" id="hTo"   type="number" min="1" max="3000" value="500" placeholder="To">
+          <span class="range-label" id="hCount" style="color:var(--gold);"></span>
+        </div>
+      </div>
+
+      <div class="setup-section">
+        <div class="setup-label">Cards per session</div>
+        <div class="session-size-row">
+          <button class="size-btn selected" data-n="20"  onclick="selectSize(this)">20</button>
+          <button class="size-btn"          data-n="50"  onclick="selectSize(this)">50</button>
+          <button class="size-btn"          data-n="100" onclick="selectSize(this)">100</button>
+          <button class="size-btn"          data-n="0"   onclick="selectSize(this)">All</button>
+        </div>
+      </div>
+
+      <div class="setup-error" id="setupError"></div>
+      <button class="start-btn" onclick="startTest()">Start Session →</button>
+    </div>
+
+    <!-- Session -->
+    <div id="testSession" style="flex-direction:column; align-items:center; width:100%;">
+      <div class="session-header">
+        <span class="session-mode-label" id="sessionModeLabel"></span>
+        <button class="quit-btn" onclick="quitTest()">✕ End session</button>
+      </div>
+      <div class="sess-progress-wrap">
+        <div class="sess-bar-track"><div class="sess-bar-fill" id="sessBar"></div></div>
+        <div class="sess-progress-info">
+          <span class="sess-count" id="sessCount"></span>
+          <div class="sess-scores">
+            <span class="ss ss-g">✓ <span id="sessCorrect">0</span></span>
+            <span class="ss" style="color:#e67e22">～ <span id="sessPassive">0</span></span>
+            <span class="ss ss-r">✗ <span id="sessWrong">0</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="card-area">
+        <div class="card-wrap" id="testCard" onclick="flipTestCard()">
+          <div class="card-face card-front" id="cardFront">
+            <div class="card-tag" id="frontTag"></div>
+            <div id="frontContent" style="width:100%;"></div>
+            <div class="card-tap">tap to reveal · Space</div>
+          </div>
+          <div class="card-face card-back" id="cardBack">
+            <div class="card-tag" id="backTag"></div>
+            <div id="backContent" style="width:100%;display:flex;flex-direction:column;align-items:center;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="ans-row">
+        <button class="ans-btn btn-wrong"   id="btnNo"      onclick="testAnswer('miss')">✗ &nbsp;Missed</button>
+        <button class="ans-btn" id="btnPassive" style="background:rgba(230,126,34,.12);color:#e67e22;border-color:rgba(230,126,34,.3);" onclick="testAnswer('passive')">～ &nbsp;Know it, wouldn't use</button>
+        <button class="ans-btn btn-correct" id="btnYes"     onclick="testAnswer('ok')">✓ &nbsp;Got it!</button>
+      </div>
+      <div class="key-hint-test">Space: flip &nbsp;·&nbsp; ← missed &nbsp;·&nbsp; ↓ passive &nbsp;·&nbsp; → got it</div>
+    </div>
+
+    <!-- Done -->
+    <div id="testDone">
+      <div class="done-emoji">🎌</div>
+      <div class="done-title">Session Complete!</div>
+      <div class="done-pct" id="donePct"></div>
+      <div class="done-detail" id="doneDetail"></div>
+      <div id="doneLifetime" style="width:100%;max-width:480px;margin:16px auto 0;text-align:left;"></div>
+      <div class="done-btns">
+        <button class="done-btn done-btn-again" onclick="replayTest()">Same setup again</button>
+        <button class="done-btn done-btn-setup" onclick="backToSetup()">Change setup</button>
+      </div>
+    </div>
+
+  </div><!-- /panelTest -->
+
+</div><!-- /#appRoot -->
+
+<!-- MODAL -->
+<div class="modal-overlay" id="detailModal" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div class="modal-kanji-big" id="mKanji"></div>
+    <div class="modal-meaning"   id="mMeaning"></div>
+    <div style="text-align:center; margin-bottom:16px; display:flex; gap:10px; justify-content:center;">
+      <button class="modal-star-btn" id="modalStarBtn" onclick="toggleModalStar()">
+        <span class="star-icon">☆</span><span id="modalStarLabel">Add to starred</span>
+      </button>
+      <button class="modal-star-btn" id="modalReviewBtn" onclick="toggleModalReview()" style="opacity:0.35;">
+        <span>🔴</span><span id="modalReviewLabel">Flag for review</span>
+      </button>
+    </div>
+    <div class="modal-grid">
+      <div class="modal-field"><label>On'yomi</label><div class="val reading" id="mOn"></div></div>
+      <div class="modal-field"><label>Kun'yomi</label><div class="val reading" id="mKun"></div></div>
+      <div class="modal-field"><label>WK Level</label><div class="val" id="mWK"></div></div>
+      <div class="modal-field"><label>Heisig #</label><div class="val" id="mH"></div></div>
+      <div class="modal-field full"><label>Heisig Keyword</label><div class="val" id="mHKw"></div></div>
+      <div class="modal-field full"><label>Radicals</label><div class="val" id="mRadicals"></div></div>
+      <div class="modal-field full"><label>Mnemonic</label><div class="modal-mnemonic" id="mMnemonic"></div></div>
+      <div class="modal-field full" id="mNotesField" style="display:none;"><label>Notes</label><div class="modal-notes" id="mNotes"></div></div>
+    </div>
+    <div class="modal-compounds-section">
+      <div class="modal-compounds-label">Common Compounds</div>
+      <div id="mCompounds"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/*══════════════════════════════════════════════
+  COMPOUND FORMAT
+  ══════════════════════════════════════════════
+  Compounds are stored in column J as:
+    word | reading | meaning | example | exReading | exMeaning | register | notes
+  Multiple compounds separated by  ///
+  Example:
+    紹介 | しょうかい | Introduction | 自己紹介をする | じこしょうかいをする | To introduce oneself | Neutral | Most common use
+    ///
+    介護 | かいご | Nursing care | 介護施設に入る | かいごしせつにはいる | To enter a care facility | Neutral | High-frequency
+══════════════════════════════════════════════*/
+
+function parseCompounds(str) {
+  if (!str || !str.trim()) return [];
+  const entries = str.split(/\s*\/\/\/\s*/);
+  const result  = [];
+  for (let entry of entries) {
+    entry = entry.trim();
+    if (!entry) continue;
+    const p = entry.split(/\s*\|\s*/);
+    if (!p[0]) continue;
+    result.push({
+      word:      p[0] || '',
+      reading:   p[1] || '',
+      meaning:   p[2] || '',
+      example:   p[3] || '',
+      exRead:    p[4] || '',
+      exMeaning: p[5] || '',
+      register:  p[6] || '',
+      notes:     p[7] || ''
+    });
+  }
+  return result.filter(c => c.word.trim().length > 0);
+}
+
+function isKanji(ch) {
+  const code = ch.charCodeAt(0);
+  return (code >= 0x4E00 && code <= 0x9FFF) ||
+         (code >= 0x3400 && code <= 0x4DBF) ||
+         (code >= 0xF900 && code <= 0xFAFF);
+}
+
+/** Replace the target kanji in the compound with □ (for Test Type 1) */
+function blankTargetKanji(word, targetKanji) {
+  return word.split('').map(ch =>
+    ch === targetKanji ? `<span class="blank-kanji">□</span>` : esc(ch)
+  ).join('');
+}
+
+/** Keep target kanji visible, replace OTHER kanji with □ (for Test Type 2) */
+function blankOtherKanji(word, targetKanji) {
+  return word.split('').map(ch => {
+    if (ch === targetKanji) return `<span class="target-kanji-in-fill">${esc(ch)}</span>`;
+    if (isKanji(ch))        return `<span class="blank-kanji-fill">□</span>`;
+    return esc(ch);
+  }).join('');
+}
+
+/** Compounds with at least one OTHER kanji (usable in fill test) */
+function getFillCompounds(k) {
+  return (k._compounds || []).filter(c =>
+    c.word.split('').some(ch => ch !== k.kanji && isKanji(ch))
+  );
+}
+
+/*══════════════════════════════════════════════
+  COMPOUND-UNIT TEST HELPERS
+  (for the newer test modes that quiz on a single
+  compound word rather than the whole kanji)
+══════════════════════════════════════════════*/
+
+/** Flatten a kanji pool into {k, c} pairs, one per compound, optionally filtered */
+function flattenCompounds(pool, compFilter) {
+  const out = [];
+  pool.forEach(k => {
+    (k._compounds || []).forEach(c => {
+      if (!compFilter || compFilter(k, c)) out.push({ k, c });
+    });
+  });
+  return out;
+}
+
+/** Compounds usable for Compound → Meaning: just need a meaning */
+function getMeaningTargets(pool) {
+  return flattenCompounds(pool, (k, c) => Boolean(c.meaning && c.meaning.trim()));
+}
+
+/** Compounds usable for Register/Nuance discrimination:
+ *  the kanji needs 2+ compounds (so there's something to discriminate between),
+ *  and the target compound's example sentence must literally contain its own word
+ *  (so it can be reliably blanked out). */
+function getDiscrimTargets(pool) {
+  const out = [];
+  pool.forEach(k => {
+    if ((k._compounds || []).length < 2) return;
+    k._compounds.forEach(c => {
+      if (c.example && c.word && c.example.includes(c.word) && c.meaning) out.push({ k, c });
+    });
+  });
+  return out;
+}
+
+/** Compounds usable for Collocation Cloze: example sentence must contain the word */
+function getClozeTargets(pool) {
+  return flattenCompounds(pool, (k, c) => Boolean(c.example && c.word && c.example.includes(c.word)));
+}
+
+/** Compounds usable for Classify the Register: needs a Register tag */
+function getRegisterTargets(pool) {
+  return flattenCompounds(pool, (k, c) => Boolean(c.register && c.register.trim()));
+}
+
+/** Compounds usable for JLPT-style choice: needs word + reading + meaning */
+function getJlptTargets(pool) {
+  return flattenCompounds(pool, (k, c) => Boolean(c.word && c.reading && c.meaning));
+}
+
+/** Kanji usable for Radical → 漢字: needs a non-empty Radicals field */
+function getRadicalTargets(pool) {
+  return pool.filter(k => k.radicals && k.radicals.trim());
+}
+
+/** Cache of every compound entry across the whole dataset, for sampling distractors */
+let _allCompoundEntriesCache = null;
+function getAllCompoundEntries() {
+  if (_allCompoundEntriesCache) return _allCompoundEntriesCache;
+  const out = [];
+  ALL.forEach(k => (k._compounds || []).forEach(c => { if (c.word) out.push(c); }));
+  _allCompoundEntriesCache = out;
+  return out;
+}
+
+/** The N most frequent distinct Register strings in the whole dataset */
+let _topRegistersCache = null;
+function getTopRegisters(n) {
+  if (_topRegistersCache) return _topRegistersCache;
+  const freq = {};
+  getAllCompoundEntries().forEach(c => {
+    const r = (c.register || '').trim();
+    if (r) freq[r] = (freq[r] || 0) + 1;
+  });
+  _topRegistersCache = Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
+  return _topRegistersCache.slice(0, n || 14);
+}
+
+/** Sample `count` real compound entries whose word differs from excludeWord */
+function sampleDistractorWords(excludeWord, count) {
+  const pool = getAllCompoundEntries().filter(c => c.word !== excludeWord);
+  return shuffle(pool).slice(0, count);
+}
+
+/** Sample `count` real readings different from excludeReading, preferring similar length */
+function sampleDistractorReadings(excludeReading, count) {
+  const pool = getAllCompoundEntries().filter(c => c.reading && c.reading !== excludeReading);
+  const targetLen = (excludeReading || '').length;
+  const close = pool.filter(c => Math.abs(c.reading.length - targetLen) <= 1);
+  const src = close.length >= count ? close : pool;
+  return shuffle(src).slice(0, count).map(c => c.reading);
+}
+
+/*══════════════════════════════════════════════
+  DATA
+══════════════════════════════════════════════*/
+let ALL = [], byLevel = {}, dataReady = false;
+
+// Columns: 0=kanji 1=meaning 2=heisig 3=hKw 4=wk 5=on 6=kun 7=radicals 8=mnemonic 9=compounds 10=notes
+function parseRow(r) {
+  const c = r.c || [];
+  const v = i => (c[i] && c[i].v != null) ? String(c[i].v).trim() : '';
+  const n = i => (c[i] && c[i].v != null) ? Number(c[i].v) : null;
+  return {
+    kanji:    v(0), meaning: v(1), heisig: n(2), hKw: v(3),
+    wk: n(4), on: v(5), kun: v(6), radicals: v(7), mnemonic: v(8),
+    compounds: v(9), notes: v(10),
+    _idx: ''
+  };
+}
+
+function buildIndex(k) {
+  k._compounds = parseCompounds(k.compounds);
+  const ct = k._compounds.map(c =>
+    [c.word, c.reading, c.meaning, c.example, c.exRead, c.exMeaning].join(' ')
+  ).join(' ');
+  k._idx = [
+    k.kanji, k.meaning.toLowerCase(), k.hKw.toLowerCase(),
+    k.on.toLowerCase(), k.kun.toLowerCase(),
+    k.heisig != null ? String(k.heisig) : '',
+    k.wk != null ? 'wk' + k.wk : '',
+    ct.toLowerCase()
+  ].join(' ');
+  return k;
+}
+
+/*══════════════════════════════════════════════
+  LOAD
+══════════════════════════════════════════════*/
+const SHEET_ID  = '1U3xf7DzwF7uSZF7z9ZJK9G8n-XblEqNoX5J7hHnc6Ow';
+const KANJI_DATA_CACHE_KEY = 'kanji-app-data-cache';
+const SHEET_GID = '1687082884';
+
+// Builds ALL/byLevel and the header count from a flat array of raw gviz rows —
+// shared by the live handler below and by the offline-cache path, so a cached
+// load renders through exactly the same logic as a fresh one.
+function applyKanjiRows(rawRows) {
+  ALL = rawRows.map(parseRow).filter(k => k.kanji.length > 0).map(buildIndex);
+  byLevel = {};
+  ALL.forEach(k => { const lv = k.wk || 0; (byLevel[lv] = byLevel[lv] || []).push(k); });
+  const wc = ALL.filter(k => k._compounds.length > 0).length;
+  document.getElementById('headerCount').textContent =
+    ALL.length.toLocaleString() + ' kanji · ' + wc + ' with compounds';
+}
+
+window.handleKanjiData = function(resp) {
+  dataReady = true;
+  try {
+    if (!resp || resp.status === 'error') {
+      const reason = (resp && resp.errors && resp.errors[0]) ? resp.errors[0].message : 'Could not load sheet data.';
+      showLoadError(reason + ' — Open this file in Chrome/Safari while logged into Google.');
+      loadFallback(); return;
+    }
+    if (!resp.table || !resp.table.rows) {
+      showLoadError('Unexpected response — open in a browser logged into Google.');
+      loadFallback(); return;
+    }
+    applyKanjiRows(resp.table.rows);
+    // Cache the raw rows (not the parsed objects) so future parseRow/buildIndex
+    // changes still apply correctly when this cache is replayed offline.
+    try { localStorage.setItem(KANJI_DATA_CACHE_KEY, JSON.stringify(resp.table.rows)); } catch (e) {}
+    initApp();
+  } catch(e) { showLoadError('Data error: ' + e.message); loadFallback(); }
+};
+
+function loadFallback() {
+  // OFFLINE CACHE: try the last real successful pull before dropping all the
+  // way down to the tiny hardcoded sample below.
+  try {
+    const raw = localStorage.getItem(KANJI_DATA_CACHE_KEY);
+    if (raw) {
+      const rows = JSON.parse(raw);
+      if (rows && rows.length) {
+        applyKanjiRows(rows);
+        document.getElementById('headerCount').textContent += ' (offline copy)';
+        initApp();
+        return;
+      }
+    }
+  } catch (e) {}
+
+  // Minimal sample set with compounds in the correct /// format
+  const sample = [
+    {kanji:'日',meaning:'Sun / Day',  heisig:12, hKw:'Sun',   wk:1, on:'ニチ・ジツ', kun:'ひ・か',   radicals:'日', mnemonic:'A window showing the sun.', compounds:'日本語 | にほんご | Japanese language | 日本語を話す | にほんごをはなす | To speak Japanese | Neutral | Most common /// 日曜日 | にちようび | Sunday | 日曜日に休む | にちようびにやすむ | To rest on Sunday | Neutral | Day of the week /// 毎日 | まいにち | Every day | 毎日練習する | まいにちれんしゅうする | To practise every day | Neutral | '},
+    {kanji:'月',meaning:'Moon/Month', heisig:13, hKw:'Moon',  wk:1, on:'ゲツ・ガツ', kun:'つき',     radicals:'月', mnemonic:'A crescent moon.', compounds:'月曜日 | げつようび | Monday | 月曜日に働く | げつようびにはたらく | To work on Monday | Neutral | /// 来月 | らいげつ | Next month | 来月に会う | らいげつにあう | To meet next month | Neutral | '},
+    {kanji:'山',meaning:'Mountain',   heisig:6,  hKw:'Mountain',wk:1,on:'サン',    kun:'やま',     radicals:'山', mnemonic:'Three peaks.', compounds:'富士山 | ふじさん | Mt Fuji | 富士山に登る | ふじさんにのぼる | To climb Mt Fuji | Formal | Most famous mountain in Japan /// 火山 | かざん | Volcano | 火山が噴火する | かざんがふんかする | A volcano erupts | Neutral | '},
+    {kanji:'水',meaning:'Water',      heisig:9,  hKw:'Water', wk:1, on:'スイ',     kun:'みず',     radicals:'水', mnemonic:'Water flowing around a rock.', compounds:'水曜日 | すいようび | Wednesday | 水曜日に会議がある | すいようびにかいぎがある | There is a meeting on Wednesday | Neutral | /// 水泳 | すいえい | Swimming | 水泳を習う | すいえいをならう | To learn swimming | Neutral | '},
+    {kanji:'人',meaning:'Person',     heisig:1,  hKw:'Person',wk:1, on:'ジン・ニン',kun:'ひと',     radicals:'人', mnemonic:'A person walking.', compounds:'日本人 | にほんじん | Japanese person | 日本人と話す | にほんじんとはなす | To talk with a Japanese person | Neutral | /// 大人 | おとな | Adult | 大人になる | おとなになる | To become an adult | Neutral | '},
+    {kanji:'介',meaning:'Introduce',  heisig:265,hKw:'jammed in',wk:35,on:'カイ', kun:'',          radicals:'人、ノ', mnemonic:'A person jammed between slashes — forced to introduce.', compounds:'紹介 | しょうかい | Introduction | 自己紹介をする | じこしょうかいをする | To introduce oneself | Neutral | Most common use /// 介護 | かいご | Nursing care | 介護施設に入る | かいごしせつにはいる | To enter a care facility | Neutral | High-frequency in social contexts'},
+  ].map(k => { k._idx = ''; return buildIndex(k); });
+
+  ALL = sample;
+  byLevel = {};
+  ALL.forEach(k => { const lv = k.wk || 0; (byLevel[lv] = byLevel[lv] || []).push(k); });
+  document.getElementById('headerCount').textContent = '6 sample kanji (open in browser logged into Google for full data)';
+  initApp();
+}
+
+function loadData() {
+  // Render the offline copy instantly if we have one; the live pull below
+  // still runs and will silently replace it the moment it succeeds.
+  try {
+    const raw = localStorage.getItem(KANJI_DATA_CACHE_KEY);
+    if (raw) {
+      const rows = JSON.parse(raw);
+      if (rows && rows.length) {
+        applyKanjiRows(rows);
+        initApp();
+        dataReady = true;
+      }
+    }
+  } catch (e) {}
+
+  const sc = document.createElement('script');
+  sc.src = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
+    '/gviz/tq?tqx=out:json;responseHandler:handleKanjiData&gid=' + SHEET_GID +
+    '&tq=select%20*%20limit%203000';
+  sc.onerror = () => { if (!dataReady) { dataReady = true; showLoadError('Could not reach Google Sheets. Open in Chrome while logged in.'); loadFallback(); } };
+  document.head.appendChild(sc);
+  setTimeout(() => { if (!dataReady) { dataReady = true; showLoadError('Timed out. Open in Chrome while logged into Google.'); loadFallback(); } }, 10000);
+}
+
+function showLoadError(msg) {
+  document.getElementById('loadMsg').innerHTML = '<span style="color:#e05252">⚠ ' + msg + '</span>';
+  document.querySelector('.loader').style.display = 'none';
+}
+
+function initApp() {
+  document.getElementById('loadingPanel').style.display = 'none';
+  document.getElementById('appRoot').style.display = 'flex';
+  buildBrowseLevels();
+  updateRangeCounts();
+  updateStarredFilterLabel();
+  ['wkFrom','wkTo','hFrom','hTo'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateRangeCounts)
+  );
+}
+
+/*══════════════════════════════════════════════
+  TABS
+══════════════════════════════════════════════*/
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel' + name[0].toUpperCase() + name.slice(1)).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+/*══════════════════════════════════════════════
+  SEARCH
+══════════════════════════════════════════════*/
+function kanjiCardHTML(k) {
+  const s = isStarred(k.kanji);
+  return `
+      <div class="result-card" onclick="openModal(${ALL.indexOf(k)})">
+        <button class="star-btn ${s?'starred':''}" data-kanji="${esc(k.kanji)}"
+                title="${s?'Remove star':'Star this kanji'}"
+                onclick="event.stopPropagation();toggleStar('${esc(k.kanji)}')">${s?'★':'☆'}</button>
+        <div class="result-kanji">${k.kanji}</div>
+        <div class="result-info">
+          <div class="result-meaning">${esc(k.meaning)}</div>
+          <div class="result-meta">
+            ${k.wk     ? `<span class="badge badge-wk">WK ${k.wk}</span>` : ''}
+            ${k.heisig ? `<span class="badge badge-h">H ${k.heisig}</span>` : ''}
+            ${k.on     ? `<span>${esc(k.on)}</span>` : ''}
+            ${k.kun    ? `<span>${esc(k.kun)}</span>` : ''}
+            ${k._compounds.length ? `<span style="color:var(--purple);font-size:.68rem;">⬡ ${k._compounds.length}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+}
+
+// A multi-kanji query (e.g. 少子化) is a compound, not a single dictionary
+// entry — this sheet has one row per kanji, so the old substring search only
+// ever turned up whichever single kanji happened to list the whole compound
+// in its own compounds text (often just one, or none). For a compound query,
+// look up every character in it individually so all of them come back.
+function compoundBreakdown(q) {
+  const chars = Array.from(q);
+  if (chars.length < 2 || !chars.every(isKanji)) return [];
+  const seen = new Set();
+  const found = [];
+  chars.forEach(ch => {
+    if (seen.has(ch)) return;
+    seen.add(ch);
+    const k = ALL.find(k => k.kanji === ch);
+    if (k) found.push(k);
+  });
+  return found;
+}
+
+function doSearch(q) {
+  const prompt = document.getElementById('searchPrompt');
+  const countEl = document.getElementById('resultsCount');
+  const grid    = document.getElementById('resultGrid');
+  q = q.trim().toLowerCase();
+  if (!q) { prompt.style.display = ''; countEl.style.display = 'none'; grid.className = 'result-grid'; grid.innerHTML = ''; return; }
+  prompt.style.display = 'none';
+
+  const breakdown = compoundBreakdown(q);
+  const breakdownKanji = new Set(breakdown.map(k => k.kanji));
+
+  const matches = ALL
+    .filter(k => !breakdownKanji.has(k.kanji))
+    .filter(k => k.kanji === q || k._idx.includes(q))
+    .sort((a,b) => (a.kanji===q ? -1 : b.kanji===q ? 1 : 0))
+    .slice(0, 80);
+
+  const total = breakdown.length + matches.length;
+  countEl.style.display = total ? '' : 'none';
+  countEl.textContent = total + ' result' + (total===1?'':'s');
+
+  if (!total) {
+    grid.className = 'result-grid';
+    grid.innerHTML = '<div class="results-empty">No matches found.</div>';
+    return;
+  }
+
+  if (!breakdown.length) {
+    grid.className = 'result-grid';
+    grid.innerHTML = matches.map(kanjiCardHTML).join('');
+    return;
+  }
+
+  grid.className = 'result-grid-wrap';
+  let html = `<div class="result-section-title">Kanji in ${esc(q)}<span class="result-section-count">${breakdown.length}</span></div>`;
+  html += `<div class="result-grid">${breakdown.map(kanjiCardHTML).join('')}</div>`;
+  if (matches.length) {
+    html += `<div class="result-section-title">Other matches<span class="result-section-count">${matches.length}</span></div>`;
+    html += `<div class="result-grid">${matches.map(kanjiCardHTML).join('')}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+/*══════════════════════════════════════════════
+  BROWSE
+══════════════════════════════════════════════*/
+let currentBrowseMode = 'wk';
+
+function switchBrowse(mode, el) {
+  currentBrowseMode = mode;
+  document.querySelectorAll('.browse-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('browseLevelHeader').textContent = '';
+  document.getElementById('kanjiGrid').innerHTML = '';
+
+  if (mode === 'wk') {
+    buildBrowseLevels();
+    document.getElementById('levelPills').style.display = '';
+  } else if (mode === 'starred') {
+    document.getElementById('levelPills').style.display = 'none';
+    browseFiltered('starred');
+  } else if (mode === 'review') {
+    document.getElementById('levelPills').style.display = 'none';
+    browseFiltered('review');
+  } else if (mode === 'on') {
+    buildBrowseReading('on');
+    document.getElementById('levelPills').style.display = '';
+  } else if (mode === 'kun') {
+    buildBrowseReading('kun');
+    document.getElementById('levelPills').style.display = '';
+  } else if (mode === 'radical') {
+    buildBrowseRadicals();
+    document.getElementById('levelPills').style.display = '';
+  }
+}
+
+function buildBrowseLevels() {
+  const levels = Object.keys(byLevel).map(Number).sort((a,b) => a-b);
+  document.getElementById('levelPills').innerHTML = levels.map(lv =>
+    `<button class="lvl-pill" onclick="browseLevel(${lv},this)">
+      ${lv===0?'No level':'Lv '+lv}
+      <span style="font-size:.65rem;opacity:.6;margin-left:3px;">(${byLevel[lv].length})</span>
+    </button>`
+  ).join('');
+}
+
+function browseLevel(lv, el) {
+  document.querySelectorAll('.lvl-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  const kanji = byLevel[lv] || [];
+  renderBrowseGrid(kanji, (lv===0?'No WK Level':'WK Level '+lv) + ' — ' + kanji.length + ' kanji');
+}
+
+function browseFiltered(type) {
+  document.getElementById('levelPills').innerHTML = '';
+  let kanji, label;
+  if (type === 'starred') {
+    kanji = ALL.filter(k => isStarred(k.kanji));
+    label = '⭐ Starred — ' + kanji.length + ' kanji';
+  } else {
+    kanji = ALL.filter(k => reviewSet.has(k.kanji));
+    label = '🔴 Needs review — ' + kanji.length + ' kanji';
+  }
+  renderBrowseGrid(kanji, label);
+}
+
+function buildBrowseReading(type) {
+  // Group by first character of on/kun reading
+  const groups = {};
+  ALL.forEach(k => {
+    const readings = type === 'on'
+      ? (k.on  || '').split(/[・\s,、]+/).map(r => r.trim()).filter(Boolean)
+      : (k.kun || '').split(/[・\s,、]+/).map(r => r.replace(/[〜.-].*/,'').trim()).filter(Boolean);
+    if (!readings.length) {
+      (groups['—'] = groups['—'] || []).push(k);
+    } else {
+      readings.forEach(r => {
+        const key = r.charAt(0);
+        (groups[key] = groups[key] || []).push(k);
+      });
+    }
+  });
+  // Sort keys — hiragana order roughly
+  const sorted = Object.keys(groups).filter(k => k !== '—').sort();
+  if (groups['—']) sorted.push('—');
+  document.getElementById('levelPills').innerHTML = sorted.map(key =>
+    `<button class="lvl-pill" onclick="browseReadingGroup('${key}','${type}',this)">
+      ${key}
+      <span style="font-size:.65rem;opacity:.6;margin-left:3px;">(${[...new Set(groups[key].map(k=>k.kanji))].length})</span>
+    </button>`
+  ).join('');
+  // Store for use in click handler
+  window._readingGroups = groups;
+}
+
+function browseReadingGroup(key, type, el) {
+  document.querySelectorAll('.lvl-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  const groups = window._readingGroups || {};
+  const kanji  = [...new Map((groups[key]||[]).map(k => [k.kanji, k])).values()];
+  const label  = (type==='on'?"On'yomi":"Kun'yomi") + ' starting with ' + key + ' — ' + kanji.length + ' kanji';
+  renderBrowseGrid(kanji, label);
+}
+
+function buildBrowseRadicals() {
+  const groups = {};
+  ALL.forEach(k => {
+    if (!k.radicals) return;
+    // Split on commas, spaces, 、・ and similar separators
+    const rads = k.radicals.split(/[,、・\s]+/).map(r => r.trim()).filter(Boolean);
+    rads.forEach(r => {
+      (groups[r] = groups[r] || []).push(k);
+    });
+  });
+  // Sort radicals by count descending, then alphabetically
+  const sorted = Object.keys(groups).sort((a, b) =>
+    groups[b].length - groups[a].length || a.localeCompare(b)
+  );
+  window._radicalGroups = groups;
+  document.getElementById('levelPills').innerHTML = sorted.map(rad =>
+    `<button class="lvl-pill" onclick="browseRadical('${esc(rad)}',this)">
+      ${esc(rad)}
+      <span style="font-size:.65rem;opacity:.6;margin-left:3px;">(${groups[rad].length})</span>
+    </button>`
+  ).join('');
+}
+
+function browseRadical(rad, el) {
+  document.querySelectorAll('.lvl-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  const groups = window._radicalGroups || {};
+  const kanji  = [...new Map((groups[rad]||[]).map(k => [k.kanji, k])).values()];
+  renderBrowseGrid(kanji, 'Radical ' + rad + ' — ' + kanji.length + ' kanji');
+}
+
+function renderBrowseGrid(kanji, label) {
+  document.getElementById('browseLevelHeader').textContent = label;
+  document.getElementById('kanjiGrid').innerHTML = kanji.length
+    ? kanji.map(k => `
+      <div class="kanji-chip" title="${esc(k.meaning)}" onclick="openModal(${ALL.indexOf(k)})">
+        ${k.kanji}
+        <span class="chip-star" data-kanji="${esc(k.kanji)}" style="${isStarred(k.kanji)?'':'display:none'}">★</span>
+      </div>`).join('')
+    : `<div style="color:var(--muted2);font-size:.85rem;padding:12px 0;">${
+        currentBrowseMode==='starred'  ? 'No starred kanji yet — star some using ☆ in search or the detail modal.' :
+        currentBrowseMode==='review'   ? 'No kanji flagged for review yet — use 🔴 in the detail modal.' :
+        currentBrowseMode==='radical'  ? 'No kanji found with that radical.' :
+        'No kanji found.'
+      }</div>`
+  ;
+}
+
+/*══════════════════════════════════════════════
+  TEST — SETUP
+══════════════════════════════════════════════*/
+let testMode = 'kanji-reading', testFilter = 'all', testN = 20;
+let testQueue = [], testIdx = 0, testCorrect = 0, testPassive = 0, testWrong = 0;
+let testFlipped = false, testCardMode = '', testCardCompound = null;
+
+/* Modes whose testQueue holds {k, c} compound-unit pairs instead of plain kanji objects */
+const COMPOUND_UNIT_MODES = new Set(['compound-meaning','register-discrim','collocation-cloze','register-classify','jlpt-mc']);
+/* Modes rendered as interactive multiple-choice rather than flip-card + self-grade */
+const MC_MODES = new Set(['register-discrim','collocation-cloze','register-classify','jlpt-mc']);
+/* Multiple-choice card state */
+let mcOptions = [], mcCorrectIdx = -1, mcAnswered = false, mcRevealHTML = '', mcKanjiForLifetime = null;
+
+function selectMode(el) {
+  document.querySelectorAll('.mode-opt').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  testMode = el.dataset.mode;
+  updateCompoundNote();
+}
+function selectFilter(el) {
+  document.querySelectorAll('.filter-opt').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  testFilter = el.dataset.filter;
+  document.getElementById('rangeWK').style.display     = testFilter==='wk'     ? 'flex' : 'none';
+  document.getElementById('rangeHeisig').style.display = testFilter==='heisig' ? 'flex' : 'none';
+  updateRangeCounts();
+  updateCompoundNote();
+}function selectSize(el) {
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  testN = parseInt(el.dataset.n) || 0;
+}
+
+function updateRangeCounts() {
+  if (!ALL.length) return;
+  const pool = getFilteredPool();
+  if (testFilter==='wk')     document.getElementById('wkCount').textContent = pool.length + ' kanji';
+  if (testFilter==='heisig') document.getElementById('hCount').textContent  = pool.length + ' kanji';
+  updateStarredFilterLabel();
+  updateCompoundNote();
+}
+
+function updateCompoundNote() {
+  const note = document.getElementById('compoundPoolNote');
+  const pool = getFilteredPool();
+  let eligible, label;
+
+  if (testMode==='compound-kanji') {
+    eligible = pool.filter(k => k._compounds.length > 0);
+    label = 'kanji with compound data';
+  } else if (testMode==='compound-fill') {
+    eligible = pool.filter(k => getFillCompounds(k).length > 0);
+    label = 'kanji with multi-kanji compounds';
+  } else if (testMode==='compound-meaning') {
+    eligible = getMeaningTargets(pool);
+    label = 'compound questions';
+  } else if (testMode==='register-discrim') {
+    eligible = getDiscrimTargets(pool);
+    label = 'discrimination questions';
+  } else if (testMode==='collocation-cloze') {
+    eligible = getClozeTargets(pool);
+    label = 'cloze questions';
+  } else if (testMode==='register-classify') {
+    eligible = getRegisterTargets(pool);
+    label = 'register questions';
+  } else if (testMode==='jlpt-mc') {
+    eligible = getJlptTargets(pool);
+    label = 'exam-style questions';
+  } else if (testMode==='radical-kanji') {
+    eligible = getRadicalTargets(pool);
+    label = 'kanji with radical data';
+  } else {
+    note.style.display = 'none';
+    return;
+  }
+
+  note.style.display = '';
+  note.textContent = eligible.length
+    ? `⬡ ${eligible.length} ${label} available`
+    : `⚠ No ${label} found — check your filter or the sheet's data`;
+}
+
+function getFilteredPool() {
+  if (testFilter==='all')     return ALL;
+  if (testFilter==='starred') return ALL.filter(k => isStarred(k.kanji));
+  if (testFilter==='review')  return ALL.filter(k => reviewSet.has(k.kanji));
+  if (testFilter==='wk') {
+    const from = parseInt(document.getElementById('wkFrom').value)||1;
+    const to   = parseInt(document.getElementById('wkTo').value)||60;
+    return ALL.filter(k => k.wk!=null && k.wk>=from && k.wk<=to);
+  }
+  if (testFilter==='heisig') {
+    const from = parseInt(document.getElementById('hFrom').value)||1;
+    const to   = parseInt(document.getElementById('hTo').value)||3000;
+    return ALL.filter(k => k.heisig!=null && k.heisig>=from && k.heisig<=to);
+  }
+  return ALL;
+}
+
+function startTest() {
+  let pool = getFilteredPool();
+  const err = document.getElementById('setupError');
+  let queueSource = null;
+
+  if (testMode==='compound-kanji') {
+    pool = pool.filter(k => k._compounds.length > 0);
+    if (!pool.length) { err.textContent='No kanji with compound data found. Add compounds to column J in your Sheet.'; return; }
+    queueSource = pool;
+  } else if (testMode==='compound-fill') {
+    pool = pool.filter(k => getFillCompounds(k).length > 0);
+    if (!pool.length) { err.textContent='No kanji with multi-kanji compounds found. Make sure column J has compounds with other kanji.'; return; }
+    queueSource = pool;
+  } else if (testMode==='compound-meaning') {
+    queueSource = getMeaningTargets(pool);
+    if (!queueSource.length) { err.textContent='No compounds with an English meaning found for this filter.'; return; }
+  } else if (testMode==='register-discrim') {
+    queueSource = getDiscrimTargets(pool);
+    if (!queueSource.length) { err.textContent='No kanji with 2+ compounds and a usable example sentence found for this filter.'; return; }
+  } else if (testMode==='collocation-cloze') {
+    queueSource = getClozeTargets(pool);
+    if (!queueSource.length) { err.textContent='No compounds with a usable example sentence found for this filter.'; return; }
+  } else if (testMode==='register-classify') {
+    queueSource = getRegisterTargets(pool);
+    if (!queueSource.length) { err.textContent='No compounds with a Register tag found for this filter.'; return; }
+  } else if (testMode==='jlpt-mc') {
+    queueSource = getJlptTargets(pool);
+    if (!queueSource.length) { err.textContent='No compounds with word/reading/meaning found for this filter.'; return; }
+  } else if (testMode==='radical-kanji') {
+    queueSource = getRadicalTargets(pool);
+    if (!queueSource.length) { err.textContent='No kanji with Radicals data found for this filter.'; return; }
+  } else if (!pool.length) {
+    err.textContent = testFilter==='starred'
+      ? 'No starred kanji yet — star some kanji using the ☆ button in search or the detail modal.'
+      : testFilter==='review'
+      ? 'No kanji flagged for review yet — flag kanji using the 🔴 button in the detail modal.'
+      : 'No kanji match that filter.';
+    return;
+  } else {
+    queueSource = pool;
+  }
+  err.textContent = '';
+
+  testQueue = shuffle(testN > 0 ? shuffle(queueSource).slice(0, testN) : queueSource);
+  testIdx = 0; testCorrect = 0; testPassive = 0; testWrong = 0;
+
+  document.getElementById('testSetup').style.display = 'none';
+  document.getElementById('testDone').style.display  = 'none';
+  document.getElementById('testSession').style.display = 'flex';
+
+  const bar = document.getElementById('sessBar');
+  const compoundBarModes = new Set(['compound-kanji','compound-fill','compound-meaning','register-discrim','collocation-cloze','register-classify']);
+  bar.classList.toggle('compound-bar', compoundBarModes.has(testMode));
+
+  const labels = {'kanji-reading':'漢字 → Readings','meaning-kanji':'Meaning → 漢字','both':'Mixed',
+    'compound-kanji':'🔤 Compound → 漢字','compound-fill':'✍ Fill the Compound',
+    'compound-meaning':'📖 Compound → Meaning','register-discrim':'🎭 Register / Nuance',
+    'collocation-cloze':'✏️ Collocation Cloze','radical-kanji':'🧩 Radical → 漢字',
+    'register-classify':'🏷️ Classify the Register','jlpt-mc':'📝 JLPT-style Choice'};
+  document.getElementById('sessionModeLabel').textContent = labels[testMode] + '  ·  ' + testQueue.length + ' cards';
+  document.getElementById('sessCorrect').textContent = '0';
+  document.getElementById('sessPassive').textContent = '0';
+  document.getElementById('sessWrong').textContent   = '0';
+  showTestCard();
+}
+
+function quitTest()    { document.getElementById('testSession').style.display='none'; backToSetup(); }
+function backToSetup() {
+  document.getElementById('testDone').style.display='none';
+  document.getElementById('testSession').style.display='none';
+  document.getElementById('testSetup').style.display='';
+}
+
+/*══════════════════════════════════════════════
+  TEST — SESSION
+══════════════════════════════════════════════*/
+function showTestCard() {
+  if (testIdx >= testQueue.length) { showTestDone(); return; }
+  const item = testQueue[testIdx];
+  const isCompoundUnit = COMPOUND_UNIT_MODES.has(testMode);
+  const k = isCompoundUnit ? item.k : item;
+  const cUnit = isCompoundUnit ? item.c : null;
+  testFlipped=false; testCardCompound=null;
+  document.getElementById('testCard').classList.remove('flipped');
+  document.getElementById('testCard').style.minHeight = '260px';
+  hideAnsBtns();
+
+  // Reset compound show/hide state
+  const front = document.getElementById('cardFront');
+  const back  = document.getElementById('cardBack');
+  front.style.display = '';
+  back.style.display  = '';
+  back.style.position = 'absolute';
+  back.style.transform = 'rotateY(180deg)';
+
+  testCardMode = testMode==='both' ? (Math.random()<0.5?'kanji-reading':'meaning-kanji') : testMode;
+
+  // MC modes replace the flip-card / 3-button footer with an interactive choice UI
+  const isMC = MC_MODES.has(testCardMode);
+  document.querySelector('.ans-row').style.display = isMC ? 'none' : '';
+  document.querySelector('.key-hint-test').style.display = isMC ? 'none' : '';
+  document.querySelector('.card-tap').style.display = isMC ? 'none' : '';
+  document.getElementById('testCard').style.cursor = isMC ? 'default' : 'pointer';
+  mcOptions = []; mcCorrectIdx = -1; mcAnswered = false; mcRevealHTML = ''; mcKanjiForLifetime = null;
+
+  const fTag  = document.getElementById('frontTag');
+  const bTag  = document.getElementById('backTag');
+  const fCont = document.getElementById('frontContent');
+  const bCont = document.getElementById('backContent');
+
+  /* ── Standard modes ─────────────────────────── */
+  if (testCardMode==='kanji-reading') {
+    front.className = 'card-face card-front';
+    back.className  = 'card-face card-back reading-style';
+    fTag.textContent = '漢字 — What are the readings?';
+    fCont.innerHTML = `<div style="text-align:center;">
+      <div class="card-kanji">${k.kanji}</div>
+      <div style="font-size:.85rem;color:var(--muted);margin-top:10px;">${esc(k.meaning)}</div>
+    </div>`;
+    bTag.textContent = 'Readings';
+    bCont.innerHTML = `
+      <div class="back-kanji">${k.kanji}</div>
+      <div class="back-readings">
+        <div class="reading-group"><div class="reading-label">On'yomi</div>
+          <div class="reading-val ${!k.on?'empty':''}">${k.on||'—'}</div></div>
+        <div class="reading-group"><div class="reading-label">Kun'yomi</div>
+          <div class="reading-val ${!k.kun?'empty':''}">${k.kun||'—'}</div></div>
+      </div>
+      ${k.mnemonic?`<div class="back-mnemonic">${esc(k.mnemonic)}</div>`:''}`;
+
+  } else if (testCardMode==='meaning-kanji') {
+    front.className = 'card-face card-front';
+    back.className  = 'card-face card-back';
+    fTag.textContent = 'Meaning — Which kanji?';
+    fCont.innerHTML = `<div style="text-align:center;">
+      <div class="card-meaning-q">${esc(k.meaning)}</div>
+      ${k.hKw&&k.hKw!==k.meaning?`<div style="font-size:.8rem;color:var(--muted);margin-top:8px;">Heisig: ${esc(k.hKw)}</div>`:''}
+    </div>`;
+    bTag.textContent = '漢字';
+    bCont.innerHTML = `
+      <div class="back-kanji">${k.kanji}</div>
+      <div class="back-meaning">${esc(k.meaning)}</div>
+      ${(k.on||k.kun)?`<div class="back-readings">
+        ${k.on ?`<div class="reading-group"><div class="reading-label">On'yomi</div><div class="reading-val">${esc(k.on)}</div></div>`:''}
+        ${k.kun?`<div class="reading-group"><div class="reading-label">Kun'yomi</div><div class="reading-val">${esc(k.kun)}</div></div>`:''}
+      </div>`:''}
+      ${k.mnemonic?`<div class="back-mnemonic">${esc(k.mnemonic)}</div>`:''}`;
+
+  /* ── Write the kanji ───────────────────────── */
+  } else if (testCardMode==='write-kanji') {
+    front.className = 'card-face card-front';
+    back.className  = 'card-face card-back';
+    fTag.textContent = 'Write the kanji';
+    const wkKw   = esc(k.meaning);
+    const hKw    = k.hKw && k.hKw !== k.meaning ? esc(k.hKw) : null;
+    fCont.innerHTML = `<div style="text-align:center;">
+      <div style="font-size:1.05rem;color:var(--muted);margin-bottom:6px;letter-spacing:.04em;">WaniKani</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--fg);">${wkKw}</div>
+      ${hKw ? `<div style="margin-top:14px;font-size:.9rem;color:var(--muted);letter-spacing:.04em;">Heisig</div>
+      <div style="font-size:1.25rem;font-weight:600;color:var(--muted2);">${hKw}</div>` : ''}
+    </div>`;
+    bTag.textContent = '漢字';
+    bCont.innerHTML = `
+      <div class="back-kanji">${k.kanji}</div>
+      <div class="back-meaning">${wkKw}</div>`;
+
+  /* ── Test Type 1: Compound → 漢字 ────────────── */
+  } else if (testCardMode==='compound-kanji') {
+    front.className = 'card-face card-front compound-style';
+    back.className  = 'card-face card-back compound-style';
+    const comps = shuffle(k._compounds).slice(0, 5);
+    fTag.textContent = 'Which kanji do all these compounds share?';
+    fCont.innerHTML = `<div class="compound-clues">${
+      comps.map(c => `<div class="compound-clue-item">
+        <div class="compound-clue-word">${blankTargetKanji(c.word, k.kanji)}</div>
+        ${c.reading?`<div class="compound-clue-reading">(${esc(c.reading)})</div>`:''}
+        ${c.meaning?`<div class="compound-clue-meaning">${esc(c.meaning)}</div>`:''}
+      </div>`).join('')
+    }</div>`;
+    bTag.textContent = 'The common kanji is…';
+    bCont.innerHTML = `
+      <div class="compound-reveal-kanji">${k.kanji}</div>
+      <div class="compound-reveal-meaning">${esc(k.meaning)}</div>
+      <div class="compound-answer-list">${comps.map(c=>`
+        <div class="compound-answer-item">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+            <span class="compound-answer-word">${esc(c.word)}</span>
+            ${c.reading?`<span class="compound-answer-reading">(${esc(c.reading)})</span>`:''}
+            ${c.meaning?`<span class="compound-answer-meaning">— ${esc(c.meaning)}</span>`:''}
+            ${c.register?`<span style="font-size:.65rem;padding:1px 6px;border-radius:4px;background:rgba(167,123,255,.15);color:var(--purple);margin-left:auto;">${esc(c.register)}</span>`:''}
+          </div>
+          ${c.example?`<div style="margin-top:4px;padding:5px 8px;background:rgba(255,255,255,.04);border-radius:6px;border-left:2px solid var(--teal);">
+            <div style="font-size:.82rem;color:var(--muted);">${esc(c.example)}</div>
+            ${c.exRead?`<div style="font-size:.74rem;color:var(--muted2);">${esc(c.exRead)}</div>`:''}
+            ${c.exMeaning?`<div style="font-size:.74rem;color:var(--muted2);font-style:italic;">${esc(c.exMeaning)}</div>`:''}
+          </div>`:''}
+        </div>`).join('')}
+      </div>`;
+
+  /* ── Test Type 2: Fill the Compound (up to 3 per card) ────── */
+  } else if (testCardMode==='compound-fill') {
+    front.className = 'card-face card-front compound-style';
+    back.className  = 'card-face card-back compound-style';
+
+    // Pick up to 3 valid compounds at random
+    const valid = getFillCompounds(k);
+    const comps = shuffle(valid).slice(0, 3);
+    testCardCompound = comps;
+
+    // For each compound, randomly show reading OR meaning as the row hint
+    const rows = comps.map(c => {
+      const useReading = Boolean(c.reading) && Math.random() < 0.5;
+      return { c, hint: useReading ? c.reading : (c.meaning || c.reading || '?') };
+    });
+
+    fTag.textContent = 'Fill in the missing kanji';
+    fCont.innerHTML = `
+      <div class="fill-compound-rows">${
+        rows.map(({c, hint}) => `
+          <div class="fill-compound-row">
+            <div class="fill-row-hint">${esc(hint)}</div>
+            <div class="fill-row-word">${blankOtherKanji(c.word, k.kanji)}</div>
+          </div>`).join('')}
+      </div>
+      <div class="fill-sub-hint">${esc(k.kanji)} = ${esc(k.meaning)} · guess the □ kanji in each word</div>`;
+
+    bTag.textContent = 'The full compounds are…';
+    bCont.innerHTML = `<div class="fill-back-list">${
+      comps.map(c => `
+        <div class="fill-back-item">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+            <div class="fill-back-word">${esc(c.word)}</div>
+            ${c.reading ? `<div class="fill-back-reading">${esc(c.reading)}</div>` : ''}
+            ${c.meaning ? `<div class="fill-back-meaning">${esc(c.meaning)}</div>` : ''}
+            ${c.register?`<span style="font-size:.65rem;padding:1px 6px;border-radius:4px;background:rgba(167,123,255,.15);color:var(--purple);margin-left:auto;">${esc(c.register)}</span>`:''}
+          </div>
+          ${c.example?`<div style="margin-top:5px;padding:5px 8px;background:rgba(255,255,255,.04);border-radius:6px;border-left:2px solid var(--teal);">
+            <div style="font-size:.82rem;color:var(--muted);">${esc(c.example)}</div>
+            ${c.exRead?`<div style="font-size:.74rem;color:var(--muted2);">${esc(c.exRead)}</div>`:''}
+            ${c.exMeaning?`<div style="font-size:.74rem;color:var(--muted2);font-style:italic;">${esc(c.exMeaning)}</div>`:''}
+          </div>`:''}
+        </div>`).join('')}
+    </div>`;
+
+  /* ── Radical → 漢字 (reverse recall) ─────────── */
+  } else if (testCardMode==='radical-kanji') {
+    front.className = 'card-face card-front';
+    back.className  = 'card-face card-back';
+    fTag.textContent = 'Radicals — which kanji?';
+    fCont.innerHTML = `<div style="text-align:center;">
+      <div style="font-size:1.35rem;font-weight:600;color:var(--text);line-height:1.6;">${esc(k.radicals)}</div>
+      ${k.wk?`<div style="font-size:.78rem;color:var(--muted2);margin-top:10px;">WK Level ${k.wk}</div>`:''}
+    </div>`;
+    bTag.textContent = '漢字';
+    bCont.innerHTML = `
+      <div class="back-kanji">${k.kanji}</div>
+      <div class="back-meaning">${esc(k.meaning)}</div>
+      ${k.mnemonic?`<div class="back-mnemonic">${esc(k.mnemonic)}</div>`:''}`;
+
+  /* ── Compound → Meaning ──────────────────────── */
+  } else if (testCardMode==='compound-meaning') {
+    front.className = 'card-face card-front compound-style';
+    back.className  = 'card-face card-back compound-style';
+    fTag.textContent = 'Compound — what does it mean?';
+    fCont.innerHTML = `<div style="text-align:center;">
+      <div class="compound-reveal-kanji" style="font-size:2.6rem;">${esc(cUnit.word)}</div>
+      ${cUnit.reading?`<div style="font-size:1.1rem;color:var(--muted);margin-top:6px;">${esc(cUnit.reading)}</div>`:''}
+    </div>`;
+    bTag.textContent = 'Meaning';
+    bCont.innerHTML = `
+      <div class="back-meaning" style="font-size:1.3rem;">${esc(cUnit.meaning)}</div>
+      ${cUnit.register?`<div style="margin:8px 0;"><span style="font-size:.7rem;padding:2px 8px;border-radius:4px;background:rgba(167,123,255,.15);color:var(--purple);">${esc(cUnit.register)}</span></div>`:''}
+      ${cUnit.example?`<div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:8px;border-left:2px solid var(--teal);max-width:420px;">
+        <div style="font-size:.88rem;color:var(--muted);">${esc(cUnit.example)}</div>
+        ${cUnit.exRead?`<div style="font-size:.78rem;color:var(--muted2);">${esc(cUnit.exRead)}</div>`:''}
+        ${cUnit.exMeaning?`<div style="font-size:.78rem;color:var(--muted2);font-style:italic;">${esc(cUnit.exMeaning)}</div>`:''}
+      </div>`:''}
+      <div style="font-size:.85rem;color:var(--muted2);margin-top:8px;">from ${k.kanji} (${esc(k.meaning)})</div>
+      ${cUnit.notes?`<div class="back-mnemonic" style="max-width:420px;">${esc(cUnit.notes)}</div>`:''}`;
+
+  /* ── Register / Nuance discrimination (MC) ───── */
+  } else if (testCardMode==='register-discrim') {
+    const target = cUnit;
+    const blanked = esc(target.example.split(target.word).join('＿＿＿'));
+    let opts = shuffle(k._compounds.filter(c => c.word)).slice(0, 4);
+    if (!opts.some(c => c.word === target.word)) { opts.pop(); opts.push(target); opts = shuffle(opts); }
+    mcOptions = opts.map(c => `<span style="font-size:1.1rem;font-weight:700;">${esc(c.word)}</span> <span style="font-size:.8rem;color:var(--muted);margin-left:6px;">${esc(c.meaning)}</span>`);
+    mcCorrectIdx = opts.findIndex(c => c.word === target.word);
+    mcKanjiForLifetime = k;
+    mcRevealHTML = `
+      <div style="font-size:1.35rem;font-weight:700;color:var(--teal);">${esc(target.word)}</div>
+      <div style="font-size:.88rem;color:var(--goldlit);margin:2px 0 6px;">${esc(target.reading)}</div>
+      ${target.register?`<span style="font-size:.68rem;padding:2px 8px;border-radius:4px;background:rgba(167,123,255,.15);color:var(--purple);">${esc(target.register)}</span>`:''}
+      ${target.notes?`<div style="margin-top:8px;font-size:.85rem;color:var(--muted);line-height:1.6;">${esc(target.notes)}</div>`:''}`;
+    front.className = 'card-face card-front compound-style';
+    back.className  = 'card-face card-back compound-style';
+    renderMC(fTag, 'Which word fits this sentence?', `
+      <div style="font-size:1.1rem;line-height:1.7;text-align:center;">${blanked}</div>
+      ${target.exMeaning?`<div style="font-size:.8rem;color:var(--muted2);font-style:italic;text-align:center;margin-top:6px;">${esc(target.exMeaning)}</div>`:''}
+      <div style="font-size:.75rem;color:var(--muted2);text-align:center;margin-top:8px;">all options are real ${k.kanji} (${esc(k.meaning)}) compounds</div>`);
+
+  /* ── Collocation Cloze (MC) ───────────────────── */
+  } else if (testCardMode==='collocation-cloze') {
+    const target = cUnit;
+    const blanked = esc(target.example.split(target.word).join('＿＿＿'));
+    const distractors = sampleDistractorWords(target.word, 3);
+    let opts = shuffle([target, ...distractors]);
+    mcOptions = opts.map(c => `<span style="font-size:1.15rem;font-weight:700;">${esc(c.word)}</span>${c.reading?` <span style="font-size:.78rem;color:var(--muted);margin-left:6px;">${esc(c.reading)}</span>`:''}`);
+    mcCorrectIdx = opts.findIndex(c => c.word === target.word);
+    mcKanjiForLifetime = k;
+    mcRevealHTML = `
+      <div style="font-size:1rem;line-height:1.7;">${esc(target.example)}</div>
+      ${target.exRead?`<div style="font-size:.85rem;color:var(--goldlit);margin-top:2px;">${esc(target.exRead)}</div>`:''}
+      ${target.exMeaning?`<div style="font-size:.8rem;color:var(--muted2);font-style:italic;margin-top:2px;">${esc(target.exMeaning)}</div>`:''}
+      <div style="margin-top:8px;font-size:.85rem;color:var(--muted);">${esc(target.word)} = ${esc(target.meaning)}</div>`;
+    front.className = 'card-face card-front compound-style';
+    back.className  = 'card-face card-back compound-style';
+    renderMC(fTag, 'Fill in the blank', `
+      <div style="font-size:1.1rem;line-height:1.7;text-align:center;">${blanked}</div>`);
+
+  /* ── Classify the Register (MC) ───────────────── */
+  } else if (testCardMode==='register-classify') {
+    const target = cUnit;
+    const registerPool = getTopRegisters(14).filter(r => r !== target.register);
+    const distractors = shuffle(registerPool).slice(0, 3);
+    let opts = shuffle([target.register, ...distractors]);
+    mcOptions = opts.map(r => `<span style="font-size:.96rem;font-weight:600;">${esc(r)}</span>`);
+    mcCorrectIdx = opts.findIndex(r => r === target.register);
+    mcKanjiForLifetime = k;
+    mcRevealHTML = target.notes
+      ? `<div style="font-size:.85rem;color:var(--muted);line-height:1.6;">${esc(target.notes)}</div>`
+      : `<div style="font-size:.85rem;color:var(--muted2);font-style:italic;">No usage note on file for this word.</div>`;
+    front.className = 'card-face card-front compound-style';
+    back.className  = 'card-face card-back compound-style';
+    renderMC(fTag, 'What register/formality is this word?', `
+      <div style="text-align:center;">
+        <div style="font-size:1.6rem;font-weight:700;">${esc(target.word)}</div>
+        ${target.reading?`<div style="font-size:.98rem;color:var(--goldlit);margin-top:4px;">${esc(target.reading)}</div>`:''}
+        <div style="font-size:.9rem;color:var(--muted);margin-top:6px;">${esc(target.meaning)}</div>
+      </div>`);
+
+  /* ── JLPT-style 4-option choice (MC) ──────────── */
+  } else if (testCardMode==='jlpt-mc') {
+    const target = cUnit;
+    const canBlank = target.example && target.example.includes(target.word);
+    const variant = canBlank && Math.random() < 0.5 ? 'reading' : 'word';
+    front.className = 'card-face card-front compound-style';
+    back.className  = 'card-face card-back compound-style';
+    mcKanjiForLifetime = k;
+
+    if (variant === 'reading') {
+      const distractorReadings = sampleDistractorReadings(target.reading, 3);
+      let opts = shuffle([target.reading, ...distractorReadings]);
+      mcOptions = opts.map(r => `<span style="font-size:1.02rem;font-weight:600;">${esc(r)}</span>`);
+      mcCorrectIdx = opts.findIndex(r => r === target.reading);
+      const highlighted = esc(target.example).split(esc(target.word)).join(
+        `<span style="color:var(--goldlit);font-weight:700;text-decoration:underline;">${esc(target.word)}</span>`);
+      mcRevealHTML = `
+        <div style="font-size:1rem;">${esc(target.example)} <span style="color:var(--goldlit);">(${esc(target.reading)})</span></div>
+        ${target.exMeaning?`<div style="font-size:.8rem;color:var(--muted2);font-style:italic;margin-top:4px;">${esc(target.exMeaning)}</div>`:''}`;
+      renderMC(fTag, 'Choose the correct reading for the underlined word', `
+        <div style="font-size:1.08rem;line-height:1.7;text-align:center;">${highlighted}</div>`);
+    } else {
+      const distractorWords = sampleDistractorWords(target.word, 3);
+      let opts = shuffle([target, ...distractorWords]);
+      mcOptions = opts.map(c => `<span style="font-size:1.25rem;font-weight:700;">${esc(c.word)}</span>`);
+      mcCorrectIdx = opts.findIndex(c => c.word === target.word);
+      mcRevealHTML = `
+        <div style="font-size:1.3rem;font-weight:700;color:var(--teal);">${esc(target.word)}</div>
+        <div style="font-size:.88rem;color:var(--goldlit);margin:2px 0;">${esc(target.reading)}</div>
+        <div style="font-size:.85rem;color:var(--muted);">${esc(target.meaning)}</div>`;
+      renderMC(fTag, 'Choose the correct kanji for this word', `
+        <div style="text-align:center;">
+          <div style="font-size:1.1rem;color:var(--goldlit);font-weight:600;">${esc(target.reading)}</div>
+          <div style="font-size:.95rem;color:var(--muted);margin-top:6px;">${esc(target.meaning)}</div>
+        </div>`);
+    }
+  }
+
+  const pct = (testIdx / testQueue.length) * 100;
+  document.getElementById('sessBar').style.width = pct + '%';
+  document.getElementById('sessCount').textContent = 'Card ' + (testIdx+1) + ' of ' + testQueue.length;
+}
+
+/*══════════════════════════════════════════════
+  MULTIPLE-CHOICE ENGINE
+  Shared by register-discrim / collocation-cloze /
+  register-classify / jlpt-mc. Reads mcOptions,
+  mcCorrectIdx, mcRevealHTML, mcKanjiForLifetime
+  (set by the calling branch in showTestCard) and
+  renders an interactive pick-one-of-N card in
+  place of the usual flip/self-grade footer.
+══════════════════════════════════════════════*/
+function renderMC(fTagEl, tagText, promptHTML) {
+  fTagEl.textContent = tagText;
+  const optsHTML = mcOptions.map((label, i) =>
+    `<button class="mc-opt" id="mcOpt${i}" onclick="mcSelect(${i})">${label}</button>`
+  ).join('');
+  document.getElementById('frontContent').innerHTML = `
+    <div class="mc-prompt">${promptHTML}</div>
+    <div class="mc-options" id="mcOptionsWrap">${optsHTML}</div>
+    <div class="mc-reveal" id="mcReveal" style="display:none;"></div>
+    <button class="mc-next-btn" id="mcNextBtn" style="display:none;" onclick="mcNext()">Next card →</button>
+  `;
+}
+
+function mcSelect(i) {
+  if (mcAnswered) return;
+  mcAnswered = true;
+  const correct = i === mcCorrectIdx;
+
+  document.querySelectorAll('.mc-opt').forEach((btn, idx) => {
+    btn.classList.add('disabled');
+    if (idx === mcCorrectIdx) btn.classList.add('correct');
+    else if (idx === i)       btn.classList.add('wrong');
+  });
+  const reveal = document.getElementById('mcReveal');
+  reveal.style.display = '';
+  reveal.innerHTML = mcRevealHTML;
+  document.getElementById('mcNextBtn').style.display = '';
+
+  if (correct) { testCorrect++; document.getElementById('sessCorrect').textContent = testCorrect; }
+  else         { testWrong++;   document.getElementById('sessWrong').textContent   = testWrong; }
+
+  const k = mcKanjiForLifetime;
+  if (k) {
+    const lt = loadLifetime();
+    if (!lt.kanji[k.kanji]) lt.kanji[k.kanji] = { meaning: k.meaning, correct:0, passive:0, wrong:0 };
+    if (correct) lt.kanji[k.kanji].correct++; else lt.kanji[k.kanji].wrong++;
+    lt.total[correct ? 'correct' : 'wrong']++;
+    const ks = lt.kanji[k.kanji];
+    if (!correct)                { reviewSet.add(k.kanji); saveReview(); }
+    if (correct && ks.correct>=3){ reviewSet.delete(k.kanji); saveReview(); }
+    saveLifetime(lt);
+  }
+}
+
+function mcNext() {
+  testIdx++;
+  setTimeout(showTestCard, 100);
+}
+
+function flipTestCard() {
+  if (!testQueue.length) return;
+  if (MC_MODES.has(testCardMode)) return; // MC cards use click-to-answer, not flip
+  testFlipped = !testFlipped;
+  const isCompound = testCardMode === 'compound-kanji' || testCardMode === 'compound-fill';
+
+  if (isCompound) {
+    // For compound cards use simple show/hide — lets card grow to natural height
+    const front = document.getElementById('cardFront');
+    const back  = document.getElementById('cardBack');
+    if (testFlipped) {
+      front.style.display = 'none';
+      back.style.display  = 'flex';
+      back.style.position = 'relative';
+      back.style.transform = 'none';
+      document.getElementById('testCard').style.minHeight = 'auto';
+    } else {
+      front.style.display = 'flex';
+      back.style.display  = 'none';
+      back.style.position = 'absolute';
+      back.style.transform = 'rotateY(180deg)';
+      document.getElementById('testCard').style.minHeight = '260px';
+    }
+  } else {
+    document.getElementById('testCard').classList.toggle('flipped', testFlipped);
+  }
+  if (testFlipped) showAnsBtns(); else hideAnsBtns();
+}
+/** Resolve the kanji object for lifetime-stat bucketing, whether the current
+ *  queue holds plain kanji or {k, c} compound-unit pairs. */
+function currentKanjiForGrading() {
+  const item = testQueue[testIdx];
+  return COMPOUND_UNIT_MODES.has(testMode) ? (item && item.k) : item;
+}
+
+function testAnswer(result) {
+  if (!testFlipped) return;
+  const k = currentKanjiForGrading();
+
+  if (result==='ok')      { testCorrect++; document.getElementById('sessCorrect').textContent = testCorrect; }
+  else if (result==='passive') { testPassive++; document.getElementById('sessPassive').textContent = testPassive; }
+  else                    { testWrong++;   document.getElementById('sessWrong').textContent   = testWrong; }
+
+  // Persist to lifetime stats
+  if (k) {
+    const lt = loadLifetime();
+    if (!lt.kanji[k.kanji]) lt.kanji[k.kanji] = { meaning: k.meaning, correct:0, passive:0, wrong:0 };
+    if (result==='ok')           lt.kanji[k.kanji].correct++;
+    else if (result==='passive') lt.kanji[k.kanji].passive++;
+    else                         lt.kanji[k.kanji].wrong++;
+    lt.total[result==='ok' ? 'correct' : result==='passive' ? 'passive' : 'wrong']++;
+
+    // Auto-flag/clear review
+    const ks = lt.kanji[k.kanji];
+    if (result==='miss' || (result==='passive' && ks.passive >= 2)) { reviewSet.add(k.kanji); saveReview(); }
+    if (result==='ok' && ks.correct >= 3) { reviewSet.delete(k.kanji); saveReview(); }
+    saveLifetime(lt);
+  }
+
+  testIdx++;
+  setTimeout(showTestCard, 150);
+}
+function showAnsBtns() {
+  document.getElementById('btnNo').classList.add('show');
+  document.getElementById('btnPassive').classList.add('show');
+  document.getElementById('btnYes').classList.add('show');
+}
+function hideAnsBtns() {
+  document.getElementById('btnNo').classList.remove('show');
+  document.getElementById('btnPassive').classList.remove('show');
+  document.getElementById('btnYes').classList.remove('show');
+}
+
+function showTestDone() {
+  document.getElementById('testSession').style.display='none';
+  const total = testCorrect + testPassive + testWrong;
+  const pct   = total>0 ? Math.round(testCorrect/total*100) : 0;
+  document.getElementById('donePct').textContent = pct+'%';
+  document.getElementById('donePct').style.color = pct>=80?'var(--green)':pct>=60?'var(--gold)':'var(--red)';
+  document.getElementById('doneDetail').innerHTML =
+    testCorrect+' natural &nbsp;·&nbsp; '+testPassive+' passive &nbsp;·&nbsp; '+testWrong+' missed<br>out of '+testQueue.length+' cards';
+
+  // Lifetime stats
+  const lt = loadLifetime();
+  const t  = lt.total.correct + lt.total.passive + lt.total.wrong;
+  if (t > 0) {
+    const ltPct = Math.round(lt.total.correct / t * 100);
+    const passiveKanji = Object.entries(lt.kanji)
+      .filter(([, s]) => s.passive > 0)
+      .sort(([, a], [, b]) => b.passive - a.passive)
+      .slice(0, 5);
+    let html = `<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:8px;">Lifetime · ${t} cards · ${ltPct}% natural</div>`;
+    if (passiveKanji.length) {
+      html += `<div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;">Most passive — focus on active production:</div>`;
+      html += passiveKanji.map(([kanji, s]) =>
+        `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border);font-size:.85rem;">
+          <span style="color:var(--teal);font-weight:700;font-size:1.2rem;min-width:36px">${esc(kanji)}</span>
+          <span style="color:var(--muted);min-width:80px;font-size:.78rem">${esc(s.meaning)}</span>
+          <span style="color:#e67e22;min-width:65px">${s.passive} passive</span>
+          <span style="color:var(--green);min-width:65px">${s.correct} natural</span>
+          <span style="color:var(--red)">${s.wrong} missed</span>
+        </div>`
+      ).join('');
+    }
+    html += `<button onclick="resetLifetime()" style="margin-top:10px;background:none;border:1px solid var(--border);color:var(--muted);font-size:.74rem;padding:4px 10px;border-radius:6px;cursor:pointer;">Reset lifetime stats</button>`;
+    document.getElementById('doneLifetime').innerHTML = html;
+  }
+  document.getElementById('testDone').style.display='flex';
+}
+
+function replayTest() {
+  testIdx=0; testCorrect=0; testPassive=0; testWrong=0;
+  document.getElementById('testDone').style.display='none';
+  testQueue = shuffle(testQueue);
+  document.getElementById('testSession').style.display='flex';
+  document.getElementById('sessCorrect').textContent='0';
+  document.getElementById('sessPassive').textContent='0';
+  document.getElementById('sessWrong').textContent='0';
+  showTestCard();
+}
+
+/*══════════════════════════════════════════════
+  MODAL
+══════════════════════════════════════════════*/
+function openModal(idx) {
+  const k = ALL[idx]; if (!k) return;
+  document.getElementById('mKanji').textContent    = k.kanji;
+  document.getElementById('mMeaning').textContent  = k.meaning;
+  document.getElementById('mOn').textContent       = k.on  || '—';
+  document.getElementById('mKun').textContent      = k.kun || '—';
+  document.getElementById('mWK').textContent       = k.wk     ? 'Level '+k.wk : '—';
+  document.getElementById('mH').textContent        = k.heisig ? '#'+k.heisig  : '—';
+  document.getElementById('mHKw').textContent      = k.hKw    || '—';
+  document.getElementById('mRadicals').textContent = k.radicals || '—';
+  document.getElementById('mMnemonic').textContent = k.mnemonic || '(no mnemonic)';
+
+  const notesField = document.getElementById('mNotesField');
+  if (k.notes) {
+    document.getElementById('mNotes').textContent = k.notes;
+    notesField.style.display = '';
+  } else {
+    notesField.style.display = 'none';
+  }
+
+  const compEl = document.getElementById('mCompounds');
+  if (k._compounds && k._compounds.length > 0) {
+    compEl.innerHTML = `<div class="modal-compound-list">${
+      k._compounds.map(c => `
+        <div class="modal-compound-card">
+          <div class="modal-compound-header">
+            <span class="modal-compound-word">${esc(c.word)}</span>
+            ${c.reading?`<span class="modal-compound-reading">(${esc(c.reading)})</span>`:''}
+            ${c.meaning?`<span class="modal-compound-meaning">${esc(c.meaning)}</span>`:''}
+          </div>
+          ${c.example?`<div class="modal-compound-example">
+            <div class="modal-compound-ex-jp">${esc(c.example)}</div>
+            ${c.exRead   ?`<div class="modal-compound-ex-read">${esc(c.exRead)}</div>`:''}
+            ${c.exMeaning?`<div class="modal-compound-ex-eng">${esc(c.exMeaning)}</div>`:''}
+          </div>`:''}
+          <div class="modal-compound-footer">
+            ${c.register?`<span class="modal-compound-register">${esc(c.register)}</span>`:''}
+            ${c.notes   ?`<span class="modal-compound-notes">${esc(c.notes)}</span>`:''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  } else {
+    compEl.innerHTML = `<div class="no-compounds-note">No compound data yet for this kanji.</div>`;
+  }
+  updateModalStarBtn(k.kanji);
+  updateModalReviewBtn(k.kanji);
+  document.getElementById('detailModal').classList.add('open');
+}
+function closeModal(e) { if (e.target===document.getElementById('detailModal')) closeModalDirect(); }
+function closeModalDirect() { document.getElementById('detailModal').classList.remove('open'); }
+
+/*══════════════════════════════════════════════
+  STARRED — localStorage persistence
+══════════════════════════════════════════════*/
+let starredSet = new Set();
+
+function loadStars() {
+  try {
+    const raw = localStorage.getItem('kanjiStarred');
+    if (raw) starredSet = new Set(JSON.parse(raw));
+  } catch(e) { starredSet = new Set(); }
+}
+function saveStars() {
+  try { localStorage.setItem('kanjiStarred', JSON.stringify([...starredSet])); } catch(e) {}
+}
+function isStarred(kanji) { return starredSet.has(kanji); }
+function toggleStar(kanji) {
+  if (starredSet.has(kanji)) starredSet.delete(kanji);
+  else starredSet.add(kanji);
+  saveStars();
+  refreshStarUI(kanji);
+  updateCompoundNote();
+  updateRangeCounts();
+  if (currentBrowseMode === 'starred') browseFiltered('starred');
+}
+
+/** Refresh every visible star indicator for a given kanji character */
+function refreshStarUI(kanji) {
+  const starred = isStarred(kanji);
+  // Result cards
+  document.querySelectorAll(`.star-btn[data-kanji="${CSS.escape(kanji)}"]`).forEach(btn => {
+    btn.textContent = starred ? '★' : '☆';
+    btn.classList.toggle('starred', starred);
+    btn.title = starred ? 'Remove star' : 'Star this kanji';
+  });
+  // Browse chips
+  document.querySelectorAll(`.chip-star[data-kanji="${CSS.escape(kanji)}"]`).forEach(dot => {
+    dot.style.display = starred ? '' : 'none';
+  });
+  // Modal star button (if currently open for this kanji)
+  const mKanji = document.getElementById('mKanji');
+  if (mKanji && mKanji.textContent === kanji) updateModalStarBtn(kanji);
+  // Update starred count label in filter button
+  updateStarredFilterLabel();
+}
+
+function updateModalStarBtn(kanji) {
+  const btn   = document.getElementById('modalStarBtn');
+  const label = document.getElementById('modalStarLabel');
+  const star  = btn.querySelector('.star-icon');
+  if (!btn) return;
+  const s = isStarred(kanji);
+  btn.classList.toggle('starred', s);
+  star.textContent  = s ? '★' : '☆';
+  label.textContent = s ? 'Starred' : 'Add to starred';
+}
+
+/** Called from the modal star button */
+function toggleModalStar() {
+  const kanji = document.getElementById('mKanji').textContent;
+  if (kanji) toggleStar(kanji);
+}
+
+function updateStarredFilterLabel() {
+  const btn = document.querySelector('.filter-opt[data-filter="starred"]');
+  if (btn) {
+    const n = starredSet.size;
+    btn.textContent = `⭐ Starred${n > 0 ? ' (' + n + ')' : ''}`;
+  }
+  const rbtn = document.querySelector('.filter-opt[data-filter="review"]');
+  if (rbtn) {
+    const n = reviewSet.size;
+    rbtn.textContent = `🔴 Needs review${n > 0 ? ' (' + n + ')' : ''}`;
+  }
+}
+
+/*══════════════════════════════════════════════
+  UTILS
+══════════════════════════════════════════════*/
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i=a.length-1; i>0; i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/*══════════════════════════════════════════════
+  KEYBOARD
+══════════════════════════════════════════════*/
+document.addEventListener('keydown', e => {
+  if (document.getElementById('testSession').style.display!=='flex') return;
+  if (MC_MODES.has(testCardMode)) {
+    if      (['1','2','3','4'].includes(e.key)) { const i = parseInt(e.key)-1; if (mcOptions[i]!=null) mcSelect(i); }
+    else if (e.key==='Enter' && mcAnswered)        mcNext();
+    else if (e.key==='Escape')                     closeModalDirect();
+    return;
+  }
+  if      (e.code==='Space')                   { e.preventDefault(); flipTestCard(); }
+  else if (e.code==='ArrowRight'&&testFlipped)   testAnswer('ok');
+  else if (e.code==='ArrowLeft' &&testFlipped)   testAnswer('miss');
+  else if (e.code==='ArrowDown' &&testFlipped)   testAnswer('passive');
+  else if (e.key ==='Escape')                    closeModalDirect();
+});
+
+/*══════════════════════════════════════════════
+  NEEDS REVIEW FLAG — localStorage persistence
+══════════════════════════════════════════════*/
+let reviewSet = new Set();
+
+function loadReview() {
+  try {
+    const raw = localStorage.getItem('kanjiReview');
+    if (raw) reviewSet = new Set(JSON.parse(raw));
+  } catch(e) { reviewSet = new Set(); }
+}
+function saveReview() {
+  try { localStorage.setItem('kanjiReview', JSON.stringify([...reviewSet])); } catch(e) {}
+}
+function isReview(kanji) { return reviewSet.has(kanji); }
+function toggleReview(kanji) {
+  if (reviewSet.has(kanji)) reviewSet.delete(kanji);
+  else reviewSet.add(kanji);
+  saveReview();
+  updateModalReviewBtn(kanji);
+  updateStarredFilterLabel();
+  if (currentBrowseMode === 'review') browseFiltered('review');
+}
+function toggleModalReview() {
+  const kanji = document.getElementById('mKanji').textContent;
+  if (kanji) toggleReview(kanji);
+}
+function updateModalReviewBtn(kanji) {
+  const btn   = document.getElementById('modalReviewBtn');
+  const label = document.getElementById('modalReviewLabel');
+  if (!btn) return;
+  const flagged = isReview(kanji);
+  btn.style.opacity = flagged ? '1' : '0.35';
+  label.textContent = flagged ? 'Flagged for review' : 'Flag for review';
+}
+
+/*══════════════════════════════════════════════
+  LIFETIME STATS — localStorage persistence
+══════════════════════════════════════════════*/
+const KANJI_STORE_KEY = 'kanji-app-lifetime';
+
+function loadLifetime() {
+  try { return JSON.parse(localStorage.getItem(KANJI_STORE_KEY)) || { total:{correct:0,passive:0,wrong:0}, kanji:{} }; }
+  catch(e) { return { total:{correct:0,passive:0,wrong:0}, kanji:{} }; }
+}
+function saveLifetime(lt) {
+  try { localStorage.setItem(KANJI_STORE_KEY, JSON.stringify(lt)); } catch(e) {}
+}
+function resetLifetime() {
+  if (!confirm('Reset all lifetime stats? This cannot be undone.')) return;
+  localStorage.removeItem(KANJI_STORE_KEY);
+  document.getElementById('doneLifetime').innerHTML = '';
+}
+
+/*══════════════════════════════════════════════
+  HUB INTEGRATION (postMessage) — additive only.
+  Lets vocab_kanji_hub.html embed this app in an iframe and get
+  blended search results / jump-to-detail without changing anything
+  about how this file works when opened on its own.
+══════════════════════════════════════════════*/
+(function () {
+  function hubSearch(q) {
+    q = (q || '').trim().toLowerCase();
+    if (!q) return [];
+    const toItem = (k, via) => ({
+      idx: ALL.indexOf(k),
+      word: k.kanji,
+      reading: [k.on, k.kun].filter(Boolean).join(' / '),
+      meaning: k.meaning,
+      via: via || null
+    });
+    // Same compound-breakdown fix as the standalone app's doSearch: a
+    // multi-kanji query returns every character in it — those are the
+    // first-level results, shown plainly. Anything else only turned up
+    // because the query text appears somewhere else in that kanji's own
+    // data (its compounds list for a compound query, or its meaning/on/kun/
+    // notes/etc. for a plain query) rather than being the kanji itself, so
+    // it's tagged via 'compound' or 'secondary' — a visible "why is this
+    // here" label instead of looking identical to a direct hit.
+    const breakdown = compoundBreakdown(q);
+    const breakdownKanji = new Set(breakdown.map(k => k.kanji));
+    const matches = ALL
+      .filter(k => !breakdownKanji.has(k.kanji))
+      .filter(k => k.kanji === q || k._idx.includes(q))
+      .sort((a, b) => (a.kanji === q ? -1 : b.kanji === q ? 1 : 0))
+      .slice(0, 8);
+    return [
+      ...breakdown.map(k => toItem(k)),
+      ...matches.map(k => toItem(k, k.kanji === q ? null : (breakdown.length ? 'compound' : 'secondary')))
+    ].slice(0, 8);
+  }
+
+  function openSearchPanel() {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panelSearch').classList.add('active');
+    const firstBtn = document.querySelector('.tab-btn');
+    if (firstBtn) firstBtn.classList.add('active');
+  }
+
+  // Finds the first occurrence of `query` inside the given elements (in
+  // order), wraps it in a highlighted <mark>, and scrolls it into view.
+  // Used after opening a detail card from the Hub so a secondary/related
+  // result (matched via a compound, another field, etc. rather than the
+  // kanji itself) isn't buried and hard to spot in the detail view.
+  function highlightQueryInModal(elIds, query) {
+    query = (query || '').trim();
+    if (!query) return;
+    const qLower = query.toLowerCase();
+    for (let i = 0; i < elIds.length; i++) {
+      const root = document.getElementById(elIds[i]);
+      if (!root) continue;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = node.nodeValue;
+        const idx = text.toLowerCase().indexOf(qLower);
+        if (idx === -1) continue;
+        const before = text.slice(0, idx);
+        const match = text.slice(idx, idx + query.length);
+        const after = text.slice(idx + query.length);
+        const mark = document.createElement('mark');
+        mark.style.cssText = 'background:var(--gold);color:#1a1408;padding:0 2px;border-radius:3px;box-shadow:0 0 0 3px rgba(201,169,110,.3);';
+        mark.textContent = match;
+        const parent = node.parentNode;
+        parent.insertBefore(document.createTextNode(before), node);
+        parent.insertBefore(mark, node);
+        parent.insertBefore(document.createTextNode(after), node);
+        parent.removeChild(node);
+        setTimeout(function () { mark.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
+        return;
+      }
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    const d = e.data;
+    if (!d || d.source !== 'jhub') return;
+    if (d.type === 'search') {
+      const results = dataReady ? hubSearch(d.query) : [];
+      if (e.source) e.source.postMessage(
+        { source: 'jhub-app', app: 'kanji', type: 'results', reqId: d.reqId, results: results },
+        '*'
+      );
+    } else if (d.type === 'open') {
+      openSearchPanel();
+      openModal(d.idx);
+      highlightQueryInModal(
+        ['mKanji', 'mMeaning', 'mOn', 'mKun', 'mWK', 'mH', 'mHKw', 'mRadicals', 'mMnemonic', 'mNotes', 'mCompounds'],
+        d.query
+      );
+    }
+  });
+})();
+
+/*══════════════════════════════════════════════
+  BOOT
+══════════════════════════════════════════════*/
+loadStars();
+loadReview();
+loadData();
+</script>
+</body>
+</html>

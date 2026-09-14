@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🇯🇵 文法 Grammar App</title>
+<style>
+  :root {
+    --red:#c0392b; --navy:#1a2340; --gold:#d4a017; --bg:#f5f5f0;
+    --card:#fff; --border:#e0ddd5; --text:#1a1a1a; --muted:#666;
+    --n5:#27ae60; --n4:#2980b9; --n3:#8e44ad; --n2:#e67e22; --n1:#c0392b;
+    --reg-casual:#2ecc71; --reg-neutral:#3498db; --reg-fspoken:#9b59b6; --reg-fwritten:#c0392b;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Hiragino Sans','Segoe UI',sans-serif; background:var(--bg); color:var(--text); }
+
+  nav { background:var(--navy); color:#fff; display:flex; align-items:center; position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,.35); }
+  .nav-logo { padding:13px 20px; font-size:1.15rem; font-weight:700; border-right:1px solid rgba(255,255,255,.15); white-space:nowrap; }
+  .nav-logo .en { color:var(--gold); font-size:.9rem; margin-left:6px; }
+  .nav-tabs { display:flex; flex:1; }
+  .nav-tab { padding:15px 22px; cursor:pointer; color:rgba(255,255,255,.65); font-size:.92rem; border-bottom:3px solid transparent; transition:all .2s; user-select:none; }
+  .nav-tab:hover { color:#fff; background:rgba(255,255,255,.07); }
+  .nav-tab.active { color:#fff; border-bottom-color:var(--gold); }
+  .badge { background:rgba(255,255,255,.2); padding:2px 7px; border-radius:10px; font-size:.72rem; margin-left:5px; }
+  .reload-btn { margin-left:auto; margin-right:14px; padding:6px 14px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.25); border-radius:6px; color:rgba(255,255,255,.8); font-size:.8rem; cursor:pointer; transition:all .2s; white-space:nowrap; }
+  .reload-btn:hover { background:rgba(255,255,255,.2); color:#fff; }
+
+  section { display:none; padding:22px; max-width:1240px; margin:0 auto; }
+  section.active { display:block; }
+
+  /* ── LOADING / ERROR ── */
+  #loadingScreen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:18px; color:var(--muted); }
+  .spinner { width:40px; height:40px; border:3px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .load-sub { font-size:.82rem; color:#aaa; }
+  #errorScreen { display:none; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:14px; color:var(--muted); text-align:center; }
+  .error-icon { font-size:3rem; }
+  .error-title { font-size:1.1rem; font-weight:700; color:var(--red); }
+  .error-msg { font-size:.86rem; max-width:460px; line-height:1.65; }
+
+  /* ── REGISTER BADGES ── */
+  .rbadge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.68rem; font-weight:700; color:#fff; white-space:nowrap; letter-spacing:.03em; }
+  .rbadge.casual   { background:var(--reg-casual); }
+  .rbadge.neutral  { background:var(--reg-neutral); }
+  .rbadge.fspoken  { background:var(--reg-fspoken); }
+  .rbadge.fwritten { background:var(--reg-fwritten); }
+  .rbadge.unknown  { background:var(--muted); }
+
+  /* ── FUNCTION TAG ── */
+  .ftag { display:inline-block; padding:2px 8px; background:#eef0f8; border-radius:10px; font-size:.68rem; color:var(--navy); font-weight:600; }
+
+  /* ── FILTERS ── */
+  .filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; background:var(--card); padding:13px 16px; border-radius:10px; border:1px solid var(--border); margin-bottom:18px; }
+  .filters select { padding:7px 11px; border:1px solid var(--border); border-radius:6px; font-size:.88rem; background:#fff; color:var(--text); outline:none; }
+  .filters select:focus { border-color:var(--navy); }
+  .filters label { font-size:.8rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .filter-count { margin-left:auto; font-size:.82rem; color:var(--muted); }
+
+  /* ── REGISTER LEGEND ── */
+  .reg-legend { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .reg-legend-item { display:flex; align-items:center; gap:5px; font-size:.75rem; color:var(--muted); }
+
+  /* ── GRID / CARDS ── */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:all .18s; }
+  .card:hover { transform:translateY(-2px); box-shadow:0 5px 18px rgba(0,0,0,.09); border-color:var(--navy); }
+  .card-head { display:flex; align-items:flex-start; gap:9px; margin-bottom:9px; }
+  .card-point { font-size:1.22rem; font-weight:700; color:var(--navy); flex:1; line-height:1.3; }
+  .card-badges { display:flex; gap:5px; flex-wrap:wrap; flex-shrink:0; align-items:flex-start; }
+  .jbadge { padding:3px 9px; border-radius:18px; font-size:.7rem; font-weight:700; color:#fff; white-space:nowrap; flex-shrink:0; }
+  .jbadge.n5{background:var(--n5);} .jbadge.n4{background:var(--n4);}
+  .jbadge.n3{background:var(--n3);} .jbadge.n2{background:var(--n2);}
+  .jbadge.n1{background:var(--n1);} .jbadge.other{background:var(--muted);}
+  .card-meaning { font-size:.97rem; color:var(--red); font-weight:600; margin-bottom:6px; }
+  .card-struct { font-family:monospace; font-size:.8rem; background:#f0f0f8; padding:4px 8px; border-radius:4px; color:#333; margin-bottom:7px; word-break:break-word; }
+  .card-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px; }
+  .card-cat { font-size:.75rem; color:var(--muted); display:flex; align-items:center; gap:5px; }
+  .card-cat::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--gold); flex-shrink:0; }
+  .card-nuance { font-size:.72rem; color:#888; font-style:italic; margin-top:4px; }
+  .card-mnem { font-size:.79rem; color:#555; font-style:italic; margin-top:7px; padding-top:7px; border-top:1px solid var(--border); line-height:1.45; }
+
+  /* ── MODAL ── */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.52); z-index:200; align-items:center; justify-content:center; padding:16px; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--card); border-radius:14px; max-width:680px; width:100%; max-height:90vh; overflow-y:auto; padding:26px; position:relative; box-shadow:0 20px 60px rgba(0,0,0,.28); }
+  .modal-x { position:absolute; top:14px; right:14px; background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--muted); line-height:1; padding:2px 6px; }
+  .modal-x:hover { color:var(--text); }
+  .mhead { display:flex; align-items:flex-start; gap:12px; margin-bottom:10px; }
+  .mpoint { font-size:1.9rem; font-weight:700; color:var(--navy); }
+  .mmeaning { font-size:1.1rem; color:var(--red); font-weight:600; margin-top:2px; }
+  .mlabel { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:4px; }
+  .msec { margin-bottom:14px; }
+  .mstruct { font-family:monospace; font-size:.88rem; background:#f0f0f8; padding:9px 12px; border-radius:7px; line-height:1.55; }
+  .mnotes { font-size:.9rem; line-height:1.68; }
+  .mmnem { font-size:.88rem; font-style:italic; color:#555; background:#fffbf0; border-left:3px solid var(--gold); padding:9px 12px; border-radius:0 7px 7px 0; line-height:1.5; }
+  .mexample { font-size:.98rem; color:var(--navy); font-weight:600; line-height:1.55; }
+  .mtrans { font-size:.86rem; color:var(--muted); margin-top:3px; }
+  .mpills { display:flex; flex-wrap:wrap; gap:7px; }
+  .mpill { padding:3px 11px; background:#eef0f8; border-radius:18px; font-size:.8rem; color:var(--navy); }
+  .mdiv { border:none; border-top:1px solid var(--border); margin:12px 0; }
+
+  /* Register/Function/Nuance block in modal */
+  .m-rfn { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:10px 12px; background:#f8f9fc; border-radius:8px; margin-bottom:14px; }
+  .m-rfn-item { display:flex; flex-direction:column; gap:3px; }
+  .m-rfn-label { font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  .m-nuance-val { font-size:.82rem; color:#555; font-style:italic; }
+
+  /* ── SEARCH ── */
+  .search-wrap { position:relative; margin-bottom:18px; }
+  .search-wrap input { width:100%; padding:13px 16px 13px 46px; font-size:1rem; border:2px solid var(--border); border-radius:10px; outline:none; transition:border-color .2s; }
+  .search-wrap input:focus { border-color:var(--navy); }
+  .search-icon { position:absolute; left:15px; top:50%; transform:translateY(-50%); font-size:1rem; color:var(--muted); }
+  .hint { text-align:center; padding:55px 20px; color:var(--muted); }
+  .hint-big { font-size:3rem; margin-bottom:10px; }
+
+  /* ── TEST ── */
+  .test-bar { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:22px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  .test-bar select { padding:7px 11px; border:1px solid var(--border); border-radius:6px; font-size:.88rem; }
+  .btn { padding:9px 20px; border:none; border-radius:7px; cursor:pointer; font-size:.9rem; font-weight:600; transition:all .18s; }
+  .btn-primary{background:var(--navy);color:#fff;} .btn-primary:hover{background:#243060;}
+  .btn-ok{background:#27ae60;color:#fff;} .btn-miss{background:var(--red);color:#fff;}
+  .btn-passive{background:#e67e22;color:#fff;}
+  .btn-outline{background:#fff;border:2px solid var(--navy);color:var(--navy);} .btn-outline:hover{background:var(--navy);color:#fff;}
+  .pool-info { font-size:.82rem; color:var(--muted); margin-left:auto; }
+  .fc-area { max-width:580px; margin:0 auto; }
+  .prog-wrap { height:5px; background:#e0ddd5; border-radius:3px; margin-bottom:16px; }
+  .prog-bar { height:100%; background:var(--navy); border-radius:3px; transition:width .3s; }
+  .prog-text { text-align:center; color:var(--muted); font-size:.82rem; margin-bottom:14px; }
+  .fc { background:var(--card); border:2px solid var(--border); border-radius:14px; min-height:240px; padding:28px; text-align:center; cursor:pointer; transition:border-color .2s; position:relative; user-select:none; }
+  .fc:hover{border-color:var(--navy);} .fc.revealed{border-color:var(--gold);background:#fffef8;}
+  .fc-prompt { font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:18px; }
+  .fc-main { font-size:2.1rem; font-weight:700; color:var(--navy); margin-bottom:10px; line-height:1.3; }
+  .fc-sub { font-size:.95rem; color:var(--muted); }
+  .fc-tap { font-size:.75rem; color:#bbb; position:absolute; bottom:13px; left:0; right:0; text-align:center; }
+  .ans { margin-top:14px; padding:18px; background:#fffef8; border:1px solid var(--gold); border-radius:11px; text-align:left; animation:fadeIn .25s; }
+  .ans-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:3px; }
+  .ans-val { font-size:.92rem; line-height:1.5; margin-bottom:10px; }
+  .grade-btns { display:flex; gap:10px; margin-top:14px; justify-content:center; flex-wrap:wrap; }
+  .stats { display:flex; gap:14px; margin-top:22px; justify-content:center; flex-wrap:wrap; }
+  .stat { background:var(--card); border:1px solid var(--border); border-radius:9px; padding:12px 20px; text-align:center; min-width:90px; }
+  .stat-n { font-size:1.9rem; font-weight:700; }
+  .stat-l { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+  .green{color:#27ae60;} .red{color:var(--red);}
+  .no-res { text-align:center; color:var(--muted); padding:55px 20px; }
+
+  /* Test mode: register */
+  .fc-reg-hint { margin-top:8px; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+  ::-webkit-scrollbar{width:5px;} ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}
+
+  /* ══ MOBILE ══ */
+  @media (max-width: 768px) {
+    nav { flex-wrap: wrap; }
+    .nav-logo { width:100%; border-right:none; border-bottom:1px solid rgba(255,255,255,.12); padding:10px 16px; }
+    .nav-tabs { overflow-x:auto; scrollbar-width:none; flex:1; min-width:0; }
+    .nav-tabs::-webkit-scrollbar { display:none; }
+    .nav-tab { padding:12px 14px; font-size:.82rem; }
+    .reload-btn { margin-right:8px; font-size:.74rem; padding:5px 10px; }
+    section { padding:14px 12px; }
+    .grid { grid-template-columns:1fr; }
+    .filters { padding:10px 12px; gap:8px; }
+    .filter-count { display:none; }
+    .modal { padding:18px 14px; }
+    .test-bar { padding:10px 12px; gap:8px; }
+    .fc-area { padding:0 4px; }
+    .fc { min-height:200px; padding:20px 16px; }
+    .grade-btns { flex-direction:column; align-items:stretch; }
+    .grade-btns .btn { text-align:center; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">文法<span class="en">Grammar</span></div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" data-sec="browse">Browse <span class="badge" id="bCount">—</span></div>
+    <div class="nav-tab" data-sec="search">Search</div>
+    <div class="nav-tab" data-sec="test">Test</div>
+  </div>
+  <button class="reload-btn" onclick="loadData()" title="Pull latest changes from your Google Sheet">↻ Refresh</button>
+</nav>
+
+<!-- ═══════════════════════════════════ BROWSE ═══════════════════════════════════ -->
+<section id="browse" class="active">
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <div style="font-size:1rem">Loading grammar data…</div>
+    <div class="load-sub">Fetching from Google Sheet</div>
+  </div>
+  <div id="errorScreen">
+    <div class="error-icon">⚠️</div>
+    <div class="error-title">Could not load data</div>
+    <div class="error-msg" id="errorMsg">Check your internet connection and that the sheet is set to "Anyone with the link can view".</div>
+    <button class="btn btn-primary" style="margin-top:6px" onclick="loadData()">Try again</button>
+  </div>
+  <div id="browseContent" style="display:none">
+    <div class="filters">
+      <label>JLPT</label>
+      <select id="fJlpt"><option value="">All levels</option></select>
+      <label>Category</label>
+      <select id="fCat"><option value="">All categories</option></select>
+      <label>Register</label>
+      <select id="fReg">
+        <option value="">All registers</option>
+        <option value="Casual / Spoken">💬 Casual / Spoken</option>
+        <option value="Neutral">○ Neutral</option>
+        <option value="Formal Spoken">🎤 Formal Spoken</option>
+        <option value="Formal Written / Academic">📝 Formal Written / Academic</option>
+      </select>
+      <label>Function</label>
+      <select id="fFunc"><option value="">All functions</option></select>
+      <label>Sort</label>
+      <select id="fSort">
+        <option value="">Default</option>
+        <option value="az">A–Z</option>
+        <option value="jlpt">By JLPT</option>
+        <option value="reg">By Register</option>
+      </select>
+      <span class="filter-count" id="fCount"></span>
+      <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+    </div>
+
+    <!-- Register legend -->
+    <div class="reg-legend">
+      <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-right:4px;">Register:</span>
+      <div class="reg-legend-item"><span class="rbadge casual">Casual</span></div>
+      <div class="reg-legend-item"><span class="rbadge neutral">Neutral</span></div>
+      <div class="reg-legend-item"><span class="rbadge fspoken">Formal Spoken</span></div>
+      <div class="reg-legend-item"><span class="rbadge fwritten">Formal Written</span></div>
+    </div>
+
+    <div class="grid" id="browseGrid"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ SEARCH ═══════════════════════════════════ -->
+<section id="search">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="Search grammar points, meanings, register, function, nuance, example sentences…" oninput="doSearch()">
+  </div>
+  <div id="searchOut">
+    <div class="hint">
+      <div class="hint-big">📖</div>
+      Search across all grammar points<br>
+      <span style="font-size:.85rem">Try とき, "formal", "addition", "literary", or any example sentence word</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ TEST ═══════════════════════════════════ -->
+<section id="test">
+  <div class="test-bar">
+    <label>JLPT</label><select id="tJlpt"><option value="">All</option></select>
+    <label>Category</label><select id="tCat"><option value="">All</option></select>
+    <label>Register</label>
+    <select id="tReg">
+      <option value="">All registers</option>
+      <option value="Casual / Spoken">Casual / Spoken</option>
+      <option value="Neutral">Neutral</option>
+      <option value="Formal Spoken">Formal Spoken</option>
+      <option value="Formal Written / Academic">Formal Written / Academic</option>
+    </select>
+    <label>Mode</label>
+    <select id="tMode">
+      <option value="jp">Japanese → English</option>
+      <option value="en">English → Japanese</option>
+      <option value="struct">Structure recall</option>
+      <option value="ex">Example → Point</option>
+      <option value="reg">Register identification</option>
+    </select>
+    <button class="btn btn-primary" onclick="startTest()">▶ Start</button>
+    <span class="pool-info" id="poolInfo"></span>
+  </div>
+
+  <div id="lifetimeStats" style="display:none;max-width:580px;margin:0 auto 18px;padding:0 8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Lifetime totals</div>
+      <button class="btn btn-outline" style="font-size:.74rem;padding:4px 10px;" onclick="resetLifetime()">Reset</button>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div class="stat" style="flex:1"><div class="stat-n green" id="ltCorrect">0</div><div class="stat-l">Natural</div></div>
+      <div class="stat" style="flex:1"><div class="stat-n" style="color:#e67e22" id="ltPassive">0</div><div class="stat-l">Passive</div></div>
+      <div class="stat" style="flex:1"><div class="stat-n red" id="ltWrong">0</div><div class="stat-l">Missed</div></div>
+      <div class="stat" style="flex:1"><div class="stat-n" id="ltPct">—</div><div class="stat-l">All-time %</div></div>
+    </div>
+    <div style="margin-top:12px;" id="passiveList"></div>
+  </div>
+
+  <div class="fc-area" id="fcArea" style="display:none">
+    <div class="prog-wrap"><div class="prog-bar" id="progBar"></div></div>
+    <div class="prog-text" id="progText"></div>
+    <div class="fc" id="fc" onclick="reveal()">
+      <div class="fc-prompt" id="fcPrompt"></div>
+      <div class="fc-main" id="fcMain"></div>
+      <div class="fc-sub" id="fcSub"></div>
+      <div class="fc-tap">Tap to reveal →</div>
+    </div>
+    <div id="ansArea" style="display:none"></div>
+    <div class="grade-btns" id="gradeBtns" style="display:none">
+      <button class="btn btn-miss" onclick="grade('miss')">✗ Missed</button>
+      <button class="btn btn-passive" onclick="grade('passive')" style="font-size:.82rem;">～ Know it, wouldn't use naturally</button>
+      <button class="btn btn-ok" onclick="grade('ok')">✓ Got it naturally</button>
+    </div>
+    <div class="stats" id="statsArea" style="display:none">
+      <div class="stat"><div class="stat-n green" id="sCorrect">0</div><div class="stat-l">Natural</div></div>
+      <div class="stat"><div class="stat-n" style="color:#e67e22" id="sPassive">0</div><div class="stat-l">Passive</div></div>
+      <div class="stat"><div class="stat-n red" id="sWrong">0</div><div class="stat-l">Missed</div></div>
+      <div class="stat"><div class="stat-n" id="sPct">—</div><div class="stat-l">Score</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ MODAL ═══════════════════════════════════ -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-x" onclick="closeModal()">×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+var SHEET_ID = '1FMt8QWWlthejDFVFnwOU68vcCFJv2q_I8ay8M-tsIRU';
+var JLPT_ORDER = ['N5','N4','N4\u2013N3','N3','N3\u2013N2','N2','N2~N1','N2\u2013N1','N1'];
+var JC = {'N5':'n5','N4':'n4','N4\u2013N3':'n4','N3':'n3','N3\u2013N2':'n3','N2':'n2','N2~N1':'n2','N2\u2013N1':'n2','N1':'n1'};
+var REG_ORDER = ['Casual / Spoken', 'Neutral', 'Formal Spoken', 'Formal Written / Academic'];
+var DATA = [];
+var GRAMMAR_DATA_CACHE_KEY = 'grammarApp_dataCache';
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function jc(j) { return JC[j] || 'other'; }
+
+// Map register string → CSS class
+function regClass(r) {
+  if (!r) return 'unknown';
+  var rl = r.toLowerCase();
+  if (rl.indexOf('casual') >= 0 || rl.indexOf('spoken') >= 0) {
+    if (rl.indexOf('formal') >= 0) return 'fspoken'; // "Formal Spoken"
+    return 'casual';
+  }
+  if (rl.indexOf('formal written') >= 0 || rl.indexOf('academic') >= 0) return 'fwritten';
+  if (rl.indexOf('formal') >= 0) return 'fspoken';
+  if (rl.indexOf('neutral') >= 0) return 'neutral';
+  return 'unknown';
+}
+
+function regLabel(r) {
+  if (!r) return '';
+  var rl = r.toLowerCase();
+  if (rl.indexOf('formal written') >= 0 || rl.indexOf('academic') >= 0) return 'Formal Written';
+  if (rl.indexOf('formal spoken') >= 0) return 'Formal Spoken';
+  if (rl.indexOf('casual') >= 0) return 'Casual';
+  if (rl.indexOf('neutral') >= 0) return 'Neutral';
+  return r;
+}
+
+// ── LOAD via JSONP (gviz) ────────────────────────────────────────────────────
+// OFFLINE CACHE: replays the last successful pull through the same
+// buildFilters/renderBrowse/updatePool path a live load uses, so the app opens
+// instantly with real grammar points instead of a blank/error screen.
+function tryGrammarCache() {
+  try {
+    var raw = localStorage.getItem(GRAMMAR_DATA_CACHE_KEY);
+    if (!raw) return false;
+    var cached = JSON.parse(raw);
+    if (!cached || !cached.length) return false;
+    DATA = cached;
+    buildFilters();
+    renderBrowse();
+    updatePool();
+    document.getElementById('bCount').textContent = DATA.length;
+    showApp();
+    return true;
+  } catch (e) { return false; }
+}
+
+function loadData() {
+  var usedCache = tryGrammarCache();
+  if (!usedCache) showLoading();
+  var old = document.getElementById('gvizScript');
+  if (old) old.parentNode.removeChild(old);
+  var script = document.createElement('script');
+  script.id = 'gvizScript';
+  script.src = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
+    '/gviz/tq?tqx=responseHandler:handleGvizData&t=' + Date.now();
+  script.onerror = function() {
+    // Only surface the error if we have nothing at all on screen — a cached
+    // view should keep working silently even if this refresh can't reach Google.
+    if (!DATA.length) showError('Could not reach Google Sheets. Check your internet connection.');
+  };
+  document.head.appendChild(script);
+  setTimeout(function() {
+    if (!DATA.length) showError('Request timed out. Check your internet connection and that the sheet is shared publicly.');
+  }, 12000);
+}
+
+function handleGvizData(response) {
+  try {
+    if (response.status !== 'ok') throw new Error(response.errors ? response.errors[0].message : 'Unknown error');
+    var table = response.table;
+    var colIndex = {};
+    table.cols.forEach(function(col, i) { colIndex[col.label] = i; });
+
+    function col(row, label) {
+      var i = colIndex[label];
+      if (i === undefined || i >= row.c.length) return '';
+      var cell = row.c[i];
+      return cell && cell.v != null ? String(cell.v) : '';
+    }
+
+    DATA = table.rows
+      .map(function(row) {
+        return {
+          number:      col(row, 'Number'),
+          category:    col(row, 'Category'),
+          jlpt:        col(row, 'JLPT'),
+          point:       col(row, 'Grammar Point'),
+          meaning:     col(row, 'Meaning (EN)'),
+          structure:   col(row, 'Structure'),
+          notes:       col(row, 'Details / Notes'),
+          mnemonic:    col(row, 'Mnemonic / Quick Summary'),
+          example:     col(row, 'Example Sentence'),
+          translation: col(row, 'English Translation'),
+          related:     col(row, 'Related Grammar'),
+          contrast:    col(row, 'Difference / Contrast Notes'),
+          register:    col(row, 'Register'),
+          function_:   col(row, 'Function'),
+          nuance:      col(row, 'Nuance')
+        };
+      })
+      .filter(function(r) { return r.point; });
+
+    if (!DATA.length) throw new Error('No data rows found.');
+    try { localStorage.setItem(GRAMMAR_DATA_CACHE_KEY, JSON.stringify(DATA)); } catch (e) {}
+    buildFilters();
+    renderBrowse();
+    updatePool();
+    document.getElementById('bCount').textContent = DATA.length;
+    showApp();
+  } catch(e) {
+    showError(e.message);
+  }
+}
+
+function showLoading() {
+  document.getElementById('loadingScreen').style.display = 'flex';
+  document.getElementById('errorScreen').style.display = 'none';
+  document.getElementById('browseContent').style.display = 'none';
+}
+function showApp() {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('errorScreen').style.display = 'none';
+  document.getElementById('browseContent').style.display = 'block';
+}
+function showError(msg) {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('errorScreen').style.display = 'flex';
+  document.getElementById('errorMsg').textContent = msg || 'Unknown error.';
+}
+
+// ── FILTERS ──────────────────────────────────────────────────────────────────
+function buildFilters() {
+  var cats  = DATA.map(function(r){return r.category;}).filter(Boolean)
+                  .filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+  var jlpts = JLPT_ORDER.filter(function(j){return DATA.some(function(r){return r.jlpt===j;});});
+
+  // Functions: collect unique, sort
+  var funcs = DATA.map(function(r){return r.function_;}).filter(Boolean)
+                  .filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+
+  ['fJlpt','tJlpt'].forEach(function(id) {
+    document.getElementById(id).innerHTML = '<option value="">All levels</option>' +
+      jlpts.map(function(j){return '<option value="'+esc(j)+'">'+esc(j)+'</option>';}).join('');
+  });
+  ['fCat','tCat'].forEach(function(id) {
+    document.getElementById(id).innerHTML = '<option value="">All categories</option>' +
+      cats.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
+  });
+
+  // Function filter (browse only — test uses register)
+  document.getElementById('fFunc').innerHTML = '<option value="">All functions</option>' +
+    funcs.map(function(f){return '<option value="'+esc(f)+'">'+esc(f)+'</option>';}).join('');
+}
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    var sec = t.dataset.sec;
+    document.querySelectorAll('.nav-tab').forEach(function(x){x.classList.remove('active');});
+    document.querySelectorAll('section').forEach(function(x){x.classList.remove('active');});
+    t.classList.add('active');
+    document.getElementById(sec).classList.add('active');
+    if (sec === 'test') renderLifetime();
+  });
+});
+
+// ── CARD ─────────────────────────────────────────────────────────────────────
+function cardHtml(item) {
+  var safePoint = esc(item.point).replace(/'/g,'&#39;');
+  var regBadge = item.register
+    ? '<span class="rbadge '+regClass(item.register)+'">'+esc(regLabel(item.register))+'</span>'
+    : '';
+  var funcTag = item.function_
+    ? '<span class="ftag">'+esc(item.function_)+'</span>'
+    : '';
+  return '<div class="card" onclick="openModal(\''+safePoint+'\')">' +
+    '<div class="card-head">' +
+      '<div class="card-point">'+esc(item.point)+'</div>' +
+      '<div class="card-badges">' +
+        '<span class="jbadge '+jc(item.jlpt)+'">'+esc(item.jlpt)+'</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card-meaning">'+esc(item.meaning)+'</div>' +
+    (item.structure ? '<div class="card-struct">'+esc(item.structure)+'</div>' : '') +
+    '<div class="card-meta">' +
+      '<div class="card-cat">'+esc(item.category)+'</div>' +
+      (regBadge || '') +
+      (funcTag || '') +
+    '</div>' +
+    (item.nuance ? '<div class="card-nuance">'+esc(item.nuance)+'</div>' : '') +
+    (item.mnemonic ? '<div class="card-mnem">'+esc(item.mnemonic.slice(0,120))+(item.mnemonic.length>120?'…':'')+'</div>' : '') +
+  '</div>';
+}
+
+// ── BROWSE ───────────────────────────────────────────────────────────────────
+function renderBrowse() {
+  var jlpt = document.getElementById('fJlpt').value;
+  var cat  = document.getElementById('fCat').value;
+  var reg  = document.getElementById('fReg').value;
+  var func = document.getElementById('fFunc').value;
+  var sort = document.getElementById('fSort').value;
+  var rows = DATA.slice();
+  if (jlpt) rows = rows.filter(function(r){return r.jlpt===jlpt;});
+  if (cat)  rows = rows.filter(function(r){return r.category===cat;});
+  if (reg)  rows = rows.filter(function(r){return r.register===reg;});
+  if (func) rows = rows.filter(function(r){return r.function_===func;});
+  if (sort==='az')   rows.sort(function(a,b){return (a.point||'').localeCompare(b.point||'');});
+  else if (sort==='jlpt') rows.sort(function(a,b){return JLPT_ORDER.indexOf(a.jlpt)-JLPT_ORDER.indexOf(b.jlpt);});
+  else if (sort==='reg')  rows.sort(function(a,b){return REG_ORDER.indexOf(a.register)-REG_ORDER.indexOf(b.register);});
+  document.getElementById('browseGrid').innerHTML = rows.length
+    ? rows.map(cardHtml).join('')
+    : '<div class="no-res"><div style="font-size:2.5rem;margin-bottom:10px">🔍</div>No results for these filters.</div>';
+  document.getElementById('fCount').textContent = rows.length + ' points';
+  document.getElementById('bCount').textContent = rows.length;
+}
+function clearFilters() {
+  ['fJlpt','fCat','fReg','fFunc','fSort'].forEach(function(id){document.getElementById(id).value='';});
+  renderBrowse();
+}
+['fJlpt','fCat','fReg','fFunc','fSort'].forEach(function(id){
+  document.getElementById(id).addEventListener('change', renderBrowse);
+});
+
+// ── SEARCH ───────────────────────────────────────────────────────────────────
+function doSearch() {
+  var q = document.getElementById('searchInput').value.trim().toLowerCase();
+  var out = document.getElementById('searchOut');
+  if (!q) {
+    out.innerHTML = '<div class="hint"><div class="hint-big">📖</div>Search across all grammar points<br><span style="font-size:.85rem">Try とき, "formal", "addition", "literary", or any example sentence word</span></div>';
+    return;
+  }
+  var hits = DATA.filter(function(r) {
+    return [r.point,r.meaning,r.structure,r.notes,r.example,r.translation,r.mnemonic,r.category,r.contrast,r.related,r.register,r.function_,r.nuance]
+      .some(function(f){return f && f.toLowerCase().indexOf(q)>=0;});
+  });
+  out.innerHTML = hits.length
+    ? '<p style="color:var(--muted);font-size:.82rem;margin-bottom:14px">'+hits.length+' result'+(hits.length===1?'':'s')+'</p><div class="grid">'+hits.map(cardHtml).join('')+'</div>'
+    : '<div class="no-res"><div style="font-size:2.5rem;margin-bottom:10px">🔍</div>No matches for <strong>'+esc(q)+'</strong></div>';
+}
+
+// ── MODAL ────────────────────────────────────────────────────────────────────
+function openModal(point) {
+  var item = null;
+  for (var i=0; i<DATA.length; i++) { if (DATA[i].point===point){item=DATA[i];break;} }
+  if (!item) return;
+
+  var h = '<div class="mhead"><div><div class="mpoint">'+esc(item.point)+'</div><div class="mmeaning">'+esc(item.meaning)+'</div></div>' +
+    '<span class="jbadge '+jc(item.jlpt)+'" style="font-size:.82rem;padding:4px 13px;margin-top:4px">'+esc(item.jlpt)+'</span></div>';
+  h += '<div style="font-size:.74rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">'+esc(item.category)+'</div>';
+
+  // Register / Function / Nuance block — only render if any data present
+  if (item.register || item.function_ || item.nuance) {
+    h += '<div class="m-rfn">';
+    if (item.register) {
+      h += '<div class="m-rfn-item"><div class="m-rfn-label">Register</div>' +
+        '<span class="rbadge '+regClass(item.register)+'">'+esc(item.register)+'</span></div>';
+    }
+    if (item.function_) {
+      h += '<div class="m-rfn-item"><div class="m-rfn-label">Function</div>' +
+        '<span class="ftag" style="font-size:.8rem">'+esc(item.function_)+'</span></div>';
+    }
+    if (item.nuance) {
+      h += '<div class="m-rfn-item" style="flex:1"><div class="m-rfn-label">Nuance</div>' +
+        '<div class="m-nuance-val">'+esc(item.nuance)+'</div></div>';
+    }
+    h += '</div>';
+  }
+
+  if (item.structure) h += '<div class="msec"><div class="mlabel">Structure</div><div class="mstruct">'+esc(item.structure)+'</div></div>';
+  if (item.mnemonic)  h += '<div class="msec"><div class="mlabel">Quick Summary</div><div class="mmnem">'+esc(item.mnemonic)+'</div></div>';
+  if (item.notes)     h += '<div class="msec"><div class="mlabel">Details</div><div class="mnotes">'+esc(item.notes)+'</div></div>';
+  if (item.example)   h += '<div class="msec"><div class="mlabel">Example Sentence</div><div class="mexample">'+esc(item.example)+'</div>'+(item.translation?'<div class="mtrans">'+esc(item.translation)+'</div>':'')+'</div>';
+  if (item.related) {
+    var pills = item.related.split(/[,、]/).map(function(r){return r.trim();}).filter(Boolean)
+      .map(function(r){return '<span class="mpill">'+esc(r)+'</span>';}).join('');
+    h += '<hr class="mdiv"><div class="msec"><div class="mlabel">Related Grammar</div><div class="mpills">'+pills+'</div></div>';
+  }
+  if (item.contrast) h += '<div class="msec"><div class="mlabel">Contrast Notes</div><div class="mnotes" style="color:var(--muted);font-size:.86rem">'+esc(item.contrast)+'</div></div>';
+  document.getElementById('modalBody').innerHTML = h;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(e) {
+  if (!e || e.target===document.getElementById('overlay') || (e.currentTarget&&e.currentTarget.classList.contains('modal-x')))
+    document.getElementById('overlay').classList.remove('open');
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') document.getElementById('overlay').classList.remove('open'); });
+
+// ── TEST ─────────────────────────────────────────────────────────────────────
+var queue=[], qi=0, correct=0, passive=0, wrong=0, revealed=false;
+var STORE_KEY = 'grammarApp_stats';
+
+function loadLifetime() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {correct:0,passive:0,wrong:0,points:{}}; }
+  catch(e) { return {correct:0,passive:0,wrong:0,points:{}}; }
+}
+function saveLifetime(lt) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(lt)); } catch(e) {}
+}
+function renderLifetime() {
+  var lt = loadLifetime();
+  var t  = lt.correct + lt.passive + lt.wrong;
+  if (!t) { document.getElementById('lifetimeStats').style.display='none'; return; }
+  document.getElementById('lifetimeStats').style.display='block';
+  document.getElementById('ltCorrect').textContent = lt.correct;
+  document.getElementById('ltPassive').textContent = lt.passive;
+  document.getElementById('ltWrong').textContent   = lt.wrong;
+  document.getElementById('ltPct').textContent     = Math.round(lt.correct/t*100)+'%';
+
+  var pts = lt.points || {};
+  var passivePoints = Object.keys(pts)
+    .filter(function(k){ return pts[k].passive > 0; })
+    .sort(function(a,b){ return pts[b].passive - pts[a].passive; })
+    .slice(0,5);
+
+  if (passivePoints.length) {
+    var h = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Most passive — worth active practice</div>';
+    h += passivePoints.map(function(k){
+      var p = pts[k];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:.85rem;">' +
+        '<span style="font-weight:700;color:var(--navy);min-width:100px">'+esc(k)+'</span>' +
+        '<span style="color:#e67e22;min-width:60px">'+p.passive+' passive</span>' +
+        '<span style="color:#27ae60;min-width:60px">'+p.correct+' natural</span>' +
+        '<span style="color:var(--red)">'+p.wrong+' missed</span>' +
+      '</div>';
+    }).join('');
+    document.getElementById('passiveList').innerHTML = h;
+  } else {
+    document.getElementById('passiveList').innerHTML = '';
+  }
+}
+function resetLifetime() {
+  if (!confirm('Reset all lifetime stats? This cannot be undone.')) return;
+  localStorage.removeItem(STORE_KEY);
+  renderLifetime();
+}
+
+function pool() {
+  var j=document.getElementById('tJlpt').value;
+  var c=document.getElementById('tCat').value;
+  var r=document.getElementById('tReg').value;
+  return DATA.filter(function(d){
+    return (!j||d.jlpt===j)&&(!c||d.category===c)&&(!r||d.register===r)&&d.point&&d.meaning;
+  });
+}
+function updatePool() { document.getElementById('poolInfo').textContent = pool().length + ' points in pool'; }
+['tJlpt','tCat','tReg'].forEach(function(id){document.getElementById(id).addEventListener('change',updatePool);});
+
+function shuffle(a) {
+  for (var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}
+  return a;
+}
+function startTest() {
+  var p=pool();
+  if(!p.length){alert('No grammar points match your filters!');return;}
+  queue=shuffle(p.slice());qi=0;correct=0;passive=0;wrong=0;
+  document.getElementById('fcArea').style.display='block';
+  document.getElementById('statsArea').style.display='none';
+  showCard();
+}
+function showCard() {
+  if(qi>=queue.length){endTest();return;}
+  revealed=false;
+  var item=queue[qi], mode=document.getElementById('tMode').value;
+  var fc=document.getElementById('fc');
+  fc.classList.remove('revealed');
+  ['ansArea','gradeBtns'].forEach(function(id){document.getElementById(id).style.display='none';});
+  fc.style.display='block';
+  fc.querySelector('.fc-tap').style.display='';
+  document.getElementById('progBar').style.width=(qi/queue.length*100).toFixed(0)+'%';
+  document.getElementById('progText').textContent='Card '+(qi+1)+' of '+queue.length;
+
+  if (mode==='jp') {
+    document.getElementById('fcPrompt').textContent='What does this grammar point mean?';
+    document.getElementById('fcMain').textContent=item.point;
+    document.getElementById('fcSub').textContent='';
+  } else if (mode==='en') {
+    document.getElementById('fcPrompt').textContent='Which grammar point means…';
+    document.getElementById('fcMain').textContent=item.meaning;
+    document.getElementById('fcSub').textContent=item.category;
+  } else if (mode==='struct') {
+    document.getElementById('fcPrompt').textContent='What structure does this use?';
+    document.getElementById('fcMain').textContent=item.point;
+    document.getElementById('fcSub').textContent=item.meaning;
+  } else if (mode==='ex') {
+    document.getElementById('fcPrompt').textContent='Which grammar point appears here?';
+    document.getElementById('fcMain').innerHTML='<span style="font-size:1.25rem">'+esc(item.example||item.meaning)+'</span>';
+    document.getElementById('fcSub').textContent='';
+  } else if (mode==='reg') {
+    // Register identification mode
+    document.getElementById('fcPrompt').textContent='What is the register of this grammar point?';
+    document.getElementById('fcMain').textContent=item.point;
+    document.getElementById('fcSub').textContent=item.meaning;
+  }
+}
+function reveal() {
+  if(revealed) return;
+  revealed=true;
+  var item=queue[qi], mode=document.getElementById('tMode').value;
+  document.getElementById('fc').classList.add('revealed');
+  document.getElementById('fc').querySelector('.fc-tap').style.display='none';
+  var h='';
+
+  if (mode==='jp') {
+    h='<div class="ans-label">Meaning</div><div class="ans-val" style="color:var(--red);font-weight:700;font-size:1.1rem">'+esc(item.meaning)+'</div>';
+  } else if (mode==='en') {
+    h='<div class="ans-label">Grammar Point</div><div class="ans-val" style="color:var(--navy);font-weight:700;font-size:1.35rem">'+esc(item.point)+'</div>';
+  } else if (mode==='struct') {
+    h='<div class="ans-label">Structure</div><div class="ans-val" style="font-family:monospace;background:#f0f0f8;padding:7px 10px;border-radius:5px">'+esc(item.structure)+'</div>';
+  } else if (mode==='ex') {
+    h='<div class="ans-label">Grammar Point</div><div class="ans-val" style="color:var(--navy);font-weight:700;font-size:1.35rem">'+esc(item.point)+'</div>' +
+      '<div class="ans-label">Meaning</div><div class="ans-val" style="color:var(--red)">'+esc(item.meaning)+'</div>';
+  } else if (mode==='reg') {
+    h='<div class="ans-label">Register</div><div class="ans-val">';
+    if (item.register) {
+      h+='<span class="rbadge '+regClass(item.register)+'" style="font-size:.85rem;padding:4px 12px">'+esc(item.register)+'</span>';
+    } else {
+      h+='<span style="color:var(--muted);font-style:italic">No register data for this point yet</span>';
+    }
+    h+='</div>';
+    if (item.function_) h+='<div class="ans-label" style="margin-top:6px">Function</div><div class="ans-val"><span class="ftag">'+esc(item.function_)+'</span></div>';
+    if (item.nuance)    h+='<div class="ans-label" style="margin-top:6px">Nuance</div><div class="ans-val" style="font-style:italic;color:#555">'+esc(item.nuance)+'</div>';
+  }
+
+  if (item.mnemonic && mode !== 'reg') {
+    h+='<div class="ans-label" style="margin-top:6px">Mnemonic</div><div class="ans-val" style="font-style:italic;color:#555">'+esc(item.mnemonic)+'</div>';
+  }
+  if (item.example && mode!=='ex') {
+    h+='<hr style="border:none;border-top:1px solid #eee;margin:8px 0"><div style="color:var(--navy);font-weight:600">'+esc(item.example)+'</div><div style="color:var(--muted);font-size:.85rem">'+esc(item.translation)+'</div>';
+  }
+  // Always show register badge in the answer for non-register modes (if available)
+  if (mode !== 'reg' && item.register) {
+    h+='<div style="margin-top:8px;display:flex;align-items:center;gap:6px"><span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Register</span> <span class="rbadge '+regClass(item.register)+'">'+esc(regLabel(item.register))+'</span>';
+    if (item.function_) h+=' <span class="ftag" style="font-size:.72rem">'+esc(item.function_)+'</span>';
+    h+='</div>';
+  }
+
+  var aa=document.getElementById('ansArea');
+  aa.className='ans'; aa.innerHTML=h; aa.style.display='block';
+  document.getElementById('gradeBtns').style.display='flex';
+}
+function grade(result) {
+  if(result==='ok') correct++;
+  else if(result==='passive') passive++;
+  else wrong++;
+
+  var lt  = loadLifetime();
+  var key = queue[qi].point;
+  if(!lt.points[key]) lt.points[key]={correct:0,passive:0,wrong:0};
+  if(result==='ok')           { lt.correct++; lt.points[key].correct++; }
+  else if(result==='passive') { lt.passive++; lt.points[key].passive++; }
+  else                        { lt.wrong++;   lt.points[key].wrong++;   }
+  saveLifetime(lt);
+
+  qi++;
+  document.getElementById('sCorrect').textContent=correct;
+  document.getElementById('sPassive').textContent=passive;
+  document.getElementById('sWrong').textContent=wrong;
+  var t=correct+passive+wrong;
+  document.getElementById('sPct').textContent=t?Math.round(correct/t*100)+'%':'—';
+  document.getElementById('statsArea').style.display='flex';
+  showCard();
+}
+function endTest() {
+  document.getElementById('fc').style.display='none';
+  document.getElementById('ansArea').style.display='none';
+  document.getElementById('gradeBtns').style.display='none';
+  document.getElementById('progBar').style.width='100%';
+  document.getElementById('progText').textContent='Complete! 🎉';
+  renderLifetime();
+}
+
+/*══════════════════════════════════════════════
+  HUB INTEGRATION (postMessage) — additive only.
+  Lets vocab_kanji_hub.html embed this app in an iframe and get
+  blended search results / jump-to-detail without changing anything
+  about how this file works when opened on its own.
+══════════════════════════════════════════════*/
+(function () {
+  // Fields that only make a hit "secondary" — matching one of these means
+  // the query showed up somewhere in the entry's supporting text, not in
+  // the grammar point or its meaning themselves. Labeled with the field
+  // name so it's clear why that entry is here.
+  var HUB_SECONDARY_FIELDS = [
+    ['structure', 'structure'], ['notes', 'details'], ['example', 'example sentence'],
+    ['translation', 'translation'], ['mnemonic', 'quick summary'], ['category', 'category'],
+    ['contrast', 'contrast notes'], ['related', 'related grammar'],
+    ['register', 'register'], ['function_', 'function'], ['nuance', 'nuance']
+  ];
+
+  function classifyGrammarMatch(r, q) {
+    var pointL = (r.point || '').toLowerCase();
+    var meaningL = (r.meaning || '').toLowerCase();
+    // First-level: the query is (part of) the grammar point itself, or its
+    // plain-English meaning — these identify the entry directly.
+    if (pointL.indexOf(q) >= 0 || meaningL.indexOf(q) >= 0) return { primary: true };
+    for (var i = 0; i < HUB_SECONDARY_FIELDS.length; i++) {
+      var key = HUB_SECONDARY_FIELDS[i][0], label = HUB_SECONDARY_FIELDS[i][1];
+      var val = r[key];
+      if (val && String(val).toLowerCase().indexOf(q) >= 0) return { primary: false, via: label };
+    }
+    return null;
+  }
+
+  function hubSearch(q) {
+    q = (q || '').trim().toLowerCase();
+    if (!q) return [];
+    var primary = [], secondary = [];
+    DATA.forEach(function (r) {
+      var m = classifyGrammarMatch(r, q);
+      if (!m) return;
+      var item = { idx: r.point, word: r.point, reading: r.jlpt || '', meaning: r.meaning, via: m.primary ? null : m.via };
+      if (m.primary) primary.push(item); else secondary.push(item);
+    });
+    return [...primary, ...secondary].slice(0, 8);
+  }
+
+  function openSearchPanel() {
+    document.querySelectorAll('.nav-tab').forEach(function (x) { x.classList.remove('active'); });
+    document.querySelectorAll('section').forEach(function (x) { x.classList.remove('active'); });
+    var tab = document.querySelector('.nav-tab[data-sec="search"]');
+    if (tab) tab.classList.add('active');
+    var sec = document.getElementById('search');
+    if (sec) sec.classList.add('active');
+  }
+
+  // Finds the first occurrence of `query` inside the given elements (in
+  // order), wraps it in a highlighted <mark>, and scrolls it into view.
+  // Used after opening a detail card from the Hub so a secondary/related
+  // result (matched via structure, an example sentence, related grammar,
+  // etc. rather than the grammar point itself) isn't buried and hard to
+  // spot in the detail view.
+  function highlightQueryInModal(elIds, query) {
+    query = (query || '').trim();
+    if (!query) return;
+    var qLower = query.toLowerCase();
+    for (var i = 0; i < elIds.length; i++) {
+      var root = document.getElementById(elIds[i]);
+      if (!root) continue;
+      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      var node;
+      while ((node = walker.nextNode())) {
+        var text = node.nodeValue;
+        var idx = text.toLowerCase().indexOf(qLower);
+        if (idx === -1) continue;
+        var before = text.slice(0, idx);
+        var match = text.slice(idx, idx + query.length);
+        var after = text.slice(idx + query.length);
+        var mark = document.createElement('mark');
+        mark.style.cssText = 'background:var(--gold);color:#1a1408;padding:0 2px;border-radius:3px;box-shadow:0 0 0 3px rgba(212,160,23,.3);';
+        mark.textContent = match;
+        var parent = node.parentNode;
+        parent.insertBefore(document.createTextNode(before), node);
+        parent.insertBefore(mark, node);
+        parent.insertBefore(document.createTextNode(after), node);
+        parent.removeChild(node);
+        (function (m) { setTimeout(function () { m.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80); })(mark);
+        return;
+      }
+    }
+  }
+
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || d.source !== 'jhub') return;
+    if (d.type === 'search') {
+      var results = DATA.length ? hubSearch(d.query) : [];
+      if (e.source) e.source.postMessage(
+        { source: 'jhub-app', app: 'grammar', type: 'results', reqId: d.reqId, results: results },
+        '*'
+      );
+    } else if (d.type === 'open') {
+      openSearchPanel();
+      openModal(d.idx);
+      highlightQueryInModal(['modalBody'], d.query);
+    }
+  });
+})();
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
