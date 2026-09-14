@@ -10,13 +10,12 @@
 // time). Cross-origin requests (the live Google Sheets JSONP pulls) are left
 // completely alone — they go straight to the network, exactly as if there
 // were no service worker at all.
-const CACHE_NAME = 'monkeys-japanese-hub-v2';
+const CACHE_NAME = 'monkeys-japanese-hub-v1';
 const SHELL_FILES = [
   'vocab_kanji_hub.html',
   'monkey_vocab_app.html',
   'kanji_app.html',
   'grammar_app.html',
-  'kanji_climb.html',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',

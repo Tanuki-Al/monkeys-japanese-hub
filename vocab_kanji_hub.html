@@ -184,7 +184,6 @@ input  { font-family: inherit; }
     <button class="hub-view-btn active" id="btnViewVocab" onclick="showView('vocab')">🐒 Vocab</button>
     <button class="hub-view-btn" id="btnViewKanji" onclick="showView('kanji')">漢 Kanji</button>
     <button class="hub-view-btn" id="btnViewGrammar" onclick="showView('grammar')">文法 Grammar</button>
-    <button class="hub-view-btn" id="btnViewClimb" onclick="showView('climb')">⛰️ Climb</button>
   </div>
   <div class="hub-hint">One search box, all three apps — click a result to jump straight to its detail card.</div>
 </header>
@@ -193,7 +192,6 @@ input  { font-family: inherit; }
   <iframe id="frameVocab" src="monkey_vocab_app.html" title="Monkey Vocab"></iframe>
   <iframe id="frameKanji" src="kanji_app.html" class="hidden" title="Kanji App"></iframe>
   <iframe id="frameGrammar" src="grammar_app.html" class="hidden" title="Grammar App"></iframe>
-  <iframe id="frameClimb" src="kanji_climb.html" class="hidden" title="Kanji Climb"></iframe>
 </div>
 
 <script>
@@ -202,16 +200,11 @@ input  { font-family: inherit; }
   everything below (view switching, search, rendering) is generic.
 ═════════════════════════════════════════════*/
 const APPS = {
-  vocab:   { label: 'Vocab',   frameId: 'frameVocab',   btnId: 'btnViewVocab',   badgeClass: 'hub-badge-vocab',   searchable: true },
-  kanji:   { label: 'Kanji',   frameId: 'frameKanji',   btnId: 'btnViewKanji',   badgeClass: 'hub-badge-kanji',   searchable: true },
-  grammar: { label: 'Grammar', frameId: 'frameGrammar', btnId: 'btnViewGrammar', badgeClass: 'hub-badge-grammar', searchable: true },
-  climb:   { label: 'Climb',   frameId: 'frameClimb',   btnId: 'btnViewClimb',   badgeClass: 'hub-badge-climb',   searchable: false }
+  vocab:   { label: 'Vocab',   frameId: 'frameVocab',   btnId: 'btnViewVocab',   badgeClass: 'hub-badge-vocab' },
+  kanji:   { label: 'Kanji',   frameId: 'frameKanji',   btnId: 'btnViewKanji',   badgeClass: 'hub-badge-kanji' },
+  grammar: { label: 'Grammar', frameId: 'frameGrammar', btnId: 'btnViewGrammar', badgeClass: 'hub-badge-grammar' }
 };
 const APP_KEYS = Object.keys(APPS);
-// Only apps that answer the hub's postMessage search protocol take part in
-// the unified search dropdown — Kanji Climb is a game, not a dictionary, so
-// it's excluded here but still fully switchable via showView().
-const SEARCHABLE_KEYS = APP_KEYS.filter(app => APPS[app].searchable);
 
 /*══════════════════════════════════════════════
   VIEW SWITCHING — all iframes stay loaded so switching
@@ -233,7 +226,7 @@ const searchInput = document.getElementById('hubSearchInput');
 const resultsBox  = document.getElementById('hubResults');
 let reqSeq = 0;
 let pending = { reqId: -1 };
-SEARCHABLE_KEYS.forEach(app => { pending[app] = null; });
+APP_KEYS.forEach(app => { pending[app] = null; });
 let debounceTimer = null;
 
 function esc(s) {
@@ -255,7 +248,7 @@ function runSearch(q) {
   if (!q) { closeResults(); return; }
   reqSeq += 1;
   pending = { reqId: reqSeq };
-  SEARCHABLE_KEYS.forEach(app => {
+  APP_KEYS.forEach(app => {
     // Every app key must start as null (== "reply not back yet"), not
     // undefined, or renderResults' `rows === null` check misses it and
     // throws reading `.length` off undefined — which silently aborts this
@@ -291,7 +284,7 @@ function resultRow(app, r, i) {
 
 function renderResults(q) {
   const sections = [];
-  SEARCHABLE_KEYS.forEach(app => {
+  APP_KEYS.forEach(app => {
     const rows = pending[app];
     if (rows == null) {
       sections.push(`<div class="hub-result-pending">${APPS[app].label} — searching…</div>`);
